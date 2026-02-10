@@ -19,6 +19,7 @@ notebook_paths = sorted(p for p in NOTEBOOK_DIR.rglob("*.ipynb") if ".ipynb_chec
 
 
 # Executes every notebook and ensure it runs without errors
+@pytest.mark.timeout(TIMEOUT)
 @pytest.mark.parametrize("nb_path", notebook_paths, ids=[p.name for p in notebook_paths])
 def test_notebook_executes(nb_path: Path):
     with nb_path.open("r", encoding="utf-8") as f:

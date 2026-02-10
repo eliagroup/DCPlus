@@ -25,9 +25,6 @@ jobs:
       pull-requests: read
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - package: dcplusos
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository code
@@ -43,7 +40,7 @@ jobs:
       - name: Run package tests
         uses: ./.github/actions/run-package-tests
         with:
-          package: ${{ matrix.package }}
+          package: dcplusos
 
   sonarqube:
     needs: [test-packages-github-runner]

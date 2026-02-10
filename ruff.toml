@@ -28,8 +28,6 @@ extend-exclude = [
     "venv",
     ".decontainer",
     ".github",
-    ".mypy_cache",
-    ".ruff_cache",
     "artifacts",
     "data",
     "docs",

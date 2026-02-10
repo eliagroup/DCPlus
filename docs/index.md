@@ -15,7 +15,7 @@ If you want to contribute to DCPlusOS, check out our [Contribution Guide](./cont
 
 ## Roadmap
 
-The road map will include a numpy and a jax implemenation. The numpy version will be for readability only where the jax version is a gpu optimized implementation.
+The road map will include a numpy and a jax implementation. The numpy version will be for readability only where the jax version is a gpu optimized implementation.  
 
 - Q1: Core implementation in numpy & jax
     - basic bussplit 

@@ -25,8 +25,6 @@ runs:
     - name: Install dependencies
       shell: bash
       run: uv sync --all-groups --all-extras --frozen
-      env:
-        UV_PROJECT: ${{ inputs.package }}
 
     - name: set PY
       shell: bash
@@ -42,7 +40,6 @@ runs:
           --cov-report xml:coverage-${{ inputs.package }}.xml
       env:
         CLEANUP_RAY_AFTER_TESTS: true
-        UV_PROJECT: ${{ inputs.package }}
 
     - name: Upload coverage report
       uses: actions/upload-artifact@v4
