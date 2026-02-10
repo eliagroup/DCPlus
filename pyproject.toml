@@ -76,6 +76,7 @@ dev = [
     "ipykernel>=6.25.2",
     "jupyter>=1.0.0",
     "ruff",
+    "nbclient>=0.10.4",
 ]
 doc = [
     "mkdocs>=1.6.1",
@@ -100,6 +101,7 @@ override-dependencies = [
 
 pythonpath = [
     "src",
+    "notebooks",
     ]
 
 addopts = [

@@ -202,7 +202,7 @@ mistune==3.2.0 ; sys_platform == 'never'
     # via nbconvert
 mypy-extensions==1.1.0
     # via typing-inspect
-nbclient==0.10.4 ; sys_platform == 'never'
+nbclient==0.10.4
     # via nbconvert
 nbconvert==7.17.0 ; sys_platform == 'never'
     # via

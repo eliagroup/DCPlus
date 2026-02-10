@@ -403,6 +403,7 @@ ci = [
 dev = [
     { name = "ipykernel" },
     { name = "jupyter" },
+    { name = "nbclient" },
     { name = "pep8-naming" },
     { name = "pre-commit" },
     { name = "pre-commit-hooks" },
@@ -442,6 +443,7 @@ ci = [{ name = "commitizen", specifier = ">=4.9.1" }]
 dev = [
     { name = "ipykernel", specifier = ">=6.25.2" },
     { name = "jupyter", specifier = ">=1.0.0" },
+    { name = "nbclient", specifier = ">=0.10.4" },
     { name = "pep8-naming" },
     { name = "pre-commit" },
     { name = "pre-commit-hooks" },
