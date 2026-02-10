@@ -40,8 +40,7 @@ jobs:
       - name: Conditional Deployment
         run: uv run mkdocs build
 
-      - name: github token
+      - name: Conditional Deployment
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Conditional Deployment
         run: uv run mkdocs gh-deploy --force
