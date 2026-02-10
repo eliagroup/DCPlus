@@ -43,6 +43,7 @@ jobs:
   publish-docs:
     needs: test-docs-build
     # if: ${{ github.ref == 'refs/heads/main' }}
+    environment: github_pages
     runs-on: ubuntu-latest
     permissions:
       contents: write
