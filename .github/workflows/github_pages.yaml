@@ -13,7 +13,7 @@ permissions: {}
 
 jobs:
   publish-docs:
-    if: ${{ github.ref == 'refs/heads/build/init_repo' }}
+
     environment: release
     runs-on: ubuntu-latest
     permissions:
