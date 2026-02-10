@@ -1,0 +1,10 @@
+# Whitelist for sensitive file type pre-commit hook
+# One pattern per line. Supports glob patterns.
+# Lines starting with # are comments and will be ignored.
+
+# VS Code settings
+.vscode/settings.json
+
+# Build and configuration files
+.devcontainer/devcontainer.json
+package.json

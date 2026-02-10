@@ -1,80 +1,89 @@
-# 📦 Project Name
+<!-- markdown-link-check-disable -->
 
+[![CI](https://github.com/eliagroup/DCPlusOS/actions/workflows/ci.yaml/badge.svg)](https://github.com/eliagroup/DCPlusOS/actions/workflows/ci.yaml)
+
+[![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-brightgreen.svg)](https://opensource.org/licenses/MPL-2.0)
+[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
+<!-- markdown-link-check-enable -->
+
+# Topology Optimization Engine
+
+-------
 ## About The Project
 
-Briefly describe what the project does, its purpose, and any relevant context.  
-Include links to documentation, architecture diagrams, or related repositories if applicable.
+This repo builds DCPlus loadflow solver implementation from EliaGroup. This DCPlusOS loadflow solver is based on the paper "[Voltage-sensitive distribution factors for contingency analysis and topology optimization](https://arxiv.org/pdf/2509.19976)". It is a linearization around the N-0 AC loadflow and approximates the changes in the network by computing an equivalent to one AC Newton-Raphson iteration step.
 
----
+TODO: Add documentation link:
+Please check out our:
 
 ## Getting Started
 
-Instructions to help developers get up and running quickly.
+If you want to get started with the engine, we highly recommend
 
 ### Prerequisites
 
-List any software, libraries, or tools required before installation.
+If you want to contribute to this repository, we recommend using VS Code's Devcontainer Environment. This allows the developers to use the same environment to develop in.
 
-```bash
-# Example
-node -v
-python3 --version
-```
+For this setup, you need to install:
+1. `uv`
+2. `Microsoft VS Code`
+3. `Docker`
 
 ### Installation
 
-Step-by-step guide to install and configure the project locally.
+You can follow our installation guide on our [Contributing page](./CONTRIBUTING.md#local-development-setup).
 
+# Usage
 
-# Example
+In order to understand the functionalities of this repo, please have a look at our examples in `notebooks/`.
+There you can find several Jupyter notebooks that explain how to use the engine.
+For example, you can load a grid file and compute the DC loadflow using our GPU-based loadflow solver.
+Or you can load an example grid and minimise the branch overload by running the topology optimizer.
 
-
----
-
-## Usage
-
-Provide examples of how to run or use the project.  
-Include CLI commands, screenshots, or links to live demos if relevant.
-
+You can also build the documentation and open it on your web browser by running
 ```bash
-npm start
+uv sync --all-groups
+uv run mkdocs serve
 ```
-
----
-
-## Roadmap
-
-Outline planned features, improvements, or milestones.  
-Use checkboxes for clarity:
-
-- [x] MVP
-- [ ] Add authentication
-- [ ] Multi-language support
 
 ---
 
 ## Contributing
 
-Refer to the mandatory [CONTRIBUTING.md](CONTRIBUTING.md)
+Please have a look at our [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
 ## License
 
-Specify the license under which the project is distributed.  
-Example: Distributed under the MIT License. See `LICENSE` for more information.
+Distributed under MPL 2.0. See [LICENSE](./LICENSE).
 
+## Citation
+
+If you use our work in scientific research, please cite [our paper on loadflowsolving](https://arxiv.org/abs/2501.17529) and soon also the work on the optimizer architecture, which is to be released soon.
 
 ---
 
 ## Contact
 
-Project Lead – [Elia Fiftyheartz](elia@fiftyhertz.com) or elia(at)fiftyheartz(.)com
 
-Team – [Mike Blumentopf](mike@energytransmission.fr)
+
+Team – [christian.merz@50hertz.com](mailto:christian.merz@50hertz.com)
 
 ---
 
-## Acknowledgments (if applicable)
+## Acknowledgments
 
-Credit any tools, libraries, contributors, or inspirations used in the project.
+We credit the authors of JAX.
+```
+@software{jax2018github,
+  author = {James Bradbury and Roy Frostig and Peter Hawkins and Matthew James Johnson and Chris Leary and Dougal Maclaurin and George Necula and Adam Paszke and Jake Vander{P}las and Skye Wanderman-{M}ilne and Qiao Zhang},
+  title = {{JAX}: composable transformations of {P}ython+{N}um{P}y programs},
+  url = {http://github.com/jax-ml/jax},
+  version = {0.3.13},
+  year = {2018},
+}
+```
+
+-----
+-----

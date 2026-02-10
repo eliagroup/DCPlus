@@ -1,0 +1,23 @@
+# Copyright 2026 50Hertz Transmission GmbH and Elia Transmission Belgium
+#
+# This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
+# If a copy of the MPL was not distributed with this file,
+# you can obtain one at https://mozilla.org/MPL/2.0/.
+# Mozilla Public License, version 2.0
+
+"""Docstring for dc_plus.place_holder."""
+
+import pypowsybl
+
+
+def place_holder() -> bool:
+    """Docstring for place_holder
+
+    Returns
+    -------
+    bool
+        True, this is a place holder function, it does not do anything useful.
+    """
+    net = pypowsybl.network.create_ieee9()
+    pypowsybl.loadflow.run_ac(net)
+    return True
