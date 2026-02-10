@@ -39,3 +39,6 @@ jobs:
 
       - name: Conditional Deployment
         run: uv run mkdocs build
+
+      - name: Conditional Deployment
+        run: uv run mkdocs gh-deploy --force
