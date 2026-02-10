@@ -87,7 +87,6 @@ repos:
     # Ruff version.
     rev: v0.14.4
     hooks:
-      # --include=["dc_solver/**/*.py", "tests/**/*.py"] overwrites the ruff.toml include.
       # Run the linter.
       - id: ruff
         args: [--fix, --config=ruff.toml, --exclude=**/*tests]

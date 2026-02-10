@@ -116,7 +116,6 @@ The devcontainer automatically provides:
 - **Git configuration** with safe directory setup
 - **Testing suite** based on `pytest` with VS Code testing integration.
    - Run all tests: `uv run pytest` (this may take some time)
-   - Run some test: `uv run pytest packages/<package_name>_pkg/<package_name>_tests`
 
 ### Benefits
 
