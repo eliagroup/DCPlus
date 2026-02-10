@@ -1,11 +1,9 @@
-# Copyright 2025 50Hertz Transmission GmbH and Elia Transmission Belgium
+# Copyright 2026 50Hertz Transmission GmbH and Elia Transmission Belgium
 #
 # This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
 # If a copy of the MPL was not distributed with this file,
 # you can obtain one at https://mozilla.org/MPL/2.0/.
 # Mozilla Public License, version 2.0
-
-name: release
 
 on: workflow_dispatch
 
@@ -13,16 +11,11 @@ permissions: {}
 
 jobs:
   publish-docs:
-
-    environment: release
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
-        with:
-          ssh-key: ${{ secrets.RELEASE_BOT_KEY }}
-
+      - uses: actions/checkout@v4
       - name: Configure git profile
         run: |
           git config user.name "DCPlusOS Build Service"
