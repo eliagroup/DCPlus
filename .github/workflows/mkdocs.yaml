@@ -41,16 +41,15 @@ jobs:
         run: uv run mkdocs build
 
   publish-docs:
-    needs: bump-version
+    needs: test-docs-build
     # if: ${{ github.ref == 'refs/heads/main' }}
-    environment: release
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
-          ssh-key: ${{ secrets.RELEASE_BOT_KEY }}
+          ssh-key: ${{ secrets.GH_PAGES_KEY }}
 
       - name: Configure git profile
         run: |
