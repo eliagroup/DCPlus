@@ -203,3 +203,4 @@ jobs:
             echo "One or more CI jobs failed, were cancelled, or skipped. Marking as failed."
             exit 1
           fi
+          echo "All CI jobs succeeded."
