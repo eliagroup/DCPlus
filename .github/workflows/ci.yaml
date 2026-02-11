@@ -127,7 +127,7 @@ jobs:
     steps:
       - name: Check out repository code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
-        
+
       - name: License Header Check
         uses: B1NARY-GR0UP/nwa@924fd990a1769a8198a3cc5d2a83f72a41a51951
         with:
@@ -148,7 +148,7 @@ jobs:
         with:
           api-key: ${{secrets.FOSSA_API_KEY}}
           run-tests: false # Add another run with run-tests: true if ci should fail on issues
-      
+
       - id: fossa-test
         uses: fossas/fossa-action@3ebcea1862c6ffbd5cf1b4d0bd6b3fe7bd6f2cac # Use a specific version if locking is preferred
         with:
@@ -162,11 +162,11 @@ jobs:
     steps:
       - name: Check out repository code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
-      
+
       - name: Setup Python and install dependencies
         uses: ./.github/actions/setup-python
         with:
-          sync-args: '--only-group doc --frozen'
+          sync-args: "--only-group doc --frozen"
 
       - name: Conditional Deployment
         run: uv run mkdocs build
@@ -174,13 +174,13 @@ jobs:
   ci-success-check:
     needs:
       [
+        code-quality-checks,
+        fossa-scan,
+        license-headers,
         sonarqube,
         tests,
-        code-quality-checks,
-        test-pip-install,
-        license-headers,
-        fossa-scan,
         test-docs-build,
+        test-pip-install,
       ]
     if: always()
     permissions:
@@ -189,21 +189,21 @@ jobs:
     steps:
       - name: Check all job results
         run: |
-          echo "Tests: ${{ needs.tests.result }}"
-          echo "SonarQube: ${{ needs.sonarqube.result }}"
           echo "Code Quality: ${{ needs.code-quality-checks.result }}"
-          echo "Test Pip Install: ${{ needs.test-pip-install.result }}"
-          echo "License Headers: ${{ needs.license-headers.result }}"
           echo "FOSSA Scan: ${{ needs.fossa-scan.result }}"
+          echo "License Headers: ${{ needs.license-headers.result }}"
+          echo "SonarQube: ${{ needs.sonarqube.result }}"
+          echo "Tests: ${{ needs.tests.result }}"
           echo "Test Docs Build: ${{ needs.test-docs-build.result }}"
+          echo "Test Pip Install: ${{ needs.test-pip-install.result }}"
 
-          if [[ "${{ needs.tests.result }}" != "success" ]] || \
-             [[ "${{ needs.sonarqube.result }}" != "success" ]] || \
-             [[ "${{ needs.code-quality-checks.result }}" != "success" ]] || \
-             [[ "${{ needs.test-pip-install.result }}" != "success" ]] || \
-             [[ "${{ needs.license-headers.result }}" != "success" ]] || \
+          if [[ "${{ needs.code-quality-checks.result }}" != "success" ]] || \
              [[ "${{ needs.fossa-scan.result }}" != "success" ]] || \
-             [[ "${{ needs.test-docs-build.result }}" != "success" ]]; then
+             [[ "${{ needs.license-headers.result }}" != "success" ]] || \
+             [[ "${{ needs.sonarqube.result }}" != "success" ]] || \
+             [[ "${{ needs.tests.result }}" != "success" ]] || \
+             [[ "${{ needs.test-docs-install.result }}" != "success" ]] || \
+             [[ "${{ needs.test-pip-install.result }}" != "success" ]]; then
             echo "One or more CI jobs failed, were cancelled, or skipped. Marking as failed."
             exit 1
           fi
