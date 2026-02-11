@@ -27,4 +27,3 @@ runs:
     - name: Install dependencies
       shell: bash
       run: uv sync ${{ inputs.sync-args }}
-
