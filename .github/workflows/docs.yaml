@@ -10,7 +10,7 @@ name: Publish Documentation
 on:
   push:
     branches:
-      - build/init_repo-adjustments
+      - main
 
 permissions: {}
 
