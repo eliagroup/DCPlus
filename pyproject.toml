@@ -59,6 +59,7 @@ packages = [
 pypowsybl = ["pypowsybl>=1.13.0"]
 pandapower = ["pandapower>=3.0.0"]
 
+[dependency-groups]
 dev = [
     "pep8-naming",
     "pre-commit",
