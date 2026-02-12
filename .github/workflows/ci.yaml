@@ -32,15 +32,15 @@ jobs:
             --cov=src \
             --cov-config=.coveragerc \
             --cov-report term-missing \
-            --cov-report xml:coverage-dcplusos.xml
+            --cov-report xml:coverage.xml
         env:
           CLEANUP_RAY_AFTER_TESTS: true
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-dcplusos
-          path: coverage-dcplusos.xml
+          name: coverage
+          path: coverage.xml
           retention-days: 7
 
   sonarqube:
