@@ -1,6 +1,6 @@
 <!-- markdown-link-check-disable -->
 
-[![CI](https://github.com/eliagroup/DCPlusOS/actions/workflows/ci.yaml/badge.svg)](https://github.com/eliagroup/DCPlusOS/actions/workflows/ci.yaml)
+[![CI](https://github.com/eliagroup/DCPlus/actions/workflows/ci.yaml/badge.svg)](https://github.com/eliagroup/DCPlus/actions/workflows/ci.yaml)
 
 [![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-brightgreen.svg)](https://opensource.org/licenses/MPL-2.0)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
@@ -11,7 +11,7 @@
 -------
 ## About The Project
 
-This repo builds DCPlus loadflow solver implementation from EliaGroup. This DCPlusOS loadflow solver is based on the paper "[Voltage-sensitive distribution factors for contingency analysis and topology optimization](https://arxiv.org/pdf/2509.19976)". It is a linearization around the N-0 AC loadflow and approximates the changes in the network by computing an equivalent to one AC Newton-Raphson iteration step.
+This repo builds DCPlus loadflow solver implementation from Elia Group. This DCPlus loadflow solver is based on the paper "[Voltage-sensitive distribution factors for contingency analysis and topology optimization](https://arxiv.org/pdf/2509.19976)". It is a linearization around the N-0 AC loadflow and approximates the changes in the network by computing an equivalent to one AC Newton-Raphson iteration step.
 
 TODO: Add documentation link:
 Please check out our:
@@ -68,7 +68,7 @@ If you use our work in scientific research, please cite [our paper on loadflowso
 
 
 
-Team – [christian.merz@50hertz.com](mailto:christian.merz@50hertz.com)
+Team – [georg.mensah@50hertz.com](mailto:georg.mensah@50hertz.com)
 
 ---
 

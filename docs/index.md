@@ -1,17 +1,17 @@
 # Introduction
 
-This repo is an implementation of project DC Plus at EliaGroup.
+This repo is an implementation of project DC Plus at Elia Group.
 
-DCPlusOS is based on the paper "[Voltage-sensitive distribution factors for contingency analysis and topology optimization](https://arxiv.org/pdf/2509.19976)". DCPlusOS is a linearization around the N-0 AC loadflow and approximates the changes in the network by computing an equivalent to one AC Newton-Raphson iteration step. DCPlusOS is expected to solve about one million loadflows per second on a 2.000 bus network.
+DCPlus is based on the paper "[Voltage-sensitive distribution factors for contingency analysis and topology optimization](https://arxiv.org/pdf/2509.19976)". DCPlus is a linearization around the N-0 AC loadflow and approximates the changes in the network by computing an equivalent to one AC Newton-Raphson iteration step. DCPlus is expected to solve about one million loadflows per second on a 2.000 bus network.
 
 
 ## Finding help
 
-If you require help with using this package, your first point of contact is <a href="mailto:christian.merz@50hertz.com">christian.merz@50hertz.com</a>.
+If you require help with using this package, your first point of contact is <a href="mailto:georg.mensah@50hertz.com">georg.mensah@50hertz.com</a>.
 
 ## Contributing
 
-If you want to contribute to DCPlusOS, check out our [Contribution Guide](./contribution_guide.md).
+If you want to contribute to DCPlus, check out our [Contribution Guide](./contribution_guide.md).
 
 ## Roadmap
 

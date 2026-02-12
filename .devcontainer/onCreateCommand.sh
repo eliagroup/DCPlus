@@ -6,7 +6,7 @@
 # you can obtain one at https://mozilla.org/MPL/2.0/.
 # Mozilla Public License, version 2.0
 
-git config --global --add safe.directory /workspaces/DCPlusOS
+git config --global --add safe.directory /workspaces/DCPlus
 
 set -e
 

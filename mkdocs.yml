@@ -7,10 +7,10 @@
 
 site_name: DC Plus
 
-repo_url: https://eliagroup.github.io/DCPlusOS/
-repo_name: EliaGroup-OpenSource/DCPlusOS
+repo_url: https://eliagroup.github.io/DCPlus/
+repo_name: EliaGroup-OpenSource/DCPlus
 
-copyright: Copyright &copy; 2024 <a href="https://www.eliagroup.eu/">Elia Group</a>. Correspondence to <a href="mailto:christian.merz@50hertz.com">christian.merz@50hertz.com</a>.
+copyright: Copyright &copy; 2026 <a href="https://www.eliagroup.eu/">Elia Group</a>. Correspondence to <a href="mailto:georg.mensah@50hertz.com">georg.mensah@50hertz.com</a>.
 strict: true
 nav:
   - Getting started:

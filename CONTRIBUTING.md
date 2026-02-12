@@ -1,6 +1,6 @@
-# Contributing to DCPlusOS
+# Contributing to DCPlus
 
-Thank you for your interest in contributing to DCPlusOS! This guide will help you understand our development workflow and contribution process.
+Thank you for your interest in contributing to DCPlus! This guide will help you understand our development workflow and contribution process.
 
 ## Branch Strategy
 
@@ -96,8 +96,8 @@ We provide a [Development Container](https://containers.dev/) configuration that
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/eliagroup/DCPlusOS.git
-   cd DCPlusOS
+   git clone https://github.com/eliagroup/DCPlus.git
+   cd DCPlus
    ```
 
 2. **Open in Dev Container**:
@@ -192,10 +192,10 @@ If you have questions about contributing:
 - Review the codebase documentation in the `docs/` directory
 - Reach out to the maintainers
 
-Thank you for contributing to DCPlusOS! 🚀
+Thank you for contributing to DCPlus! 🚀
 
 ## License
 
-When you contribute to DCPlusOS, you acknowledge and agree to the terms set out for any current and future contributions you provide.
+When you contribute to DCPlus, you acknowledge and agree to the terms set out for any current and future contributions you provide.
 
 All contributions will be licensed according to the license specified in the repository.
