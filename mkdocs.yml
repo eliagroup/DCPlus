@@ -1,4 +1,4 @@
-# Copyright 2026 50Hertz Transmission GmbH and Elia Transmission Belgium
+# Copyright 2026 50Hertz Transmission GmbH and Elia Transmission Belgium SA/NV
 #
 # This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
 # If a copy of the MPL was not distributed with this file,
@@ -7,7 +7,7 @@
 
 site_name: DC Plus
 
-repo_url: https://github.com/eliagroup/DCPlusOS
+repo_url: https://eliagroup.github.io/DCPlusOS/
 repo_name: EliaGroup-OpenSource/DCPlusOS
 
 copyright: Copyright &copy; 2024 <a href="https://www.eliagroup.eu/">Elia Group</a>. Correspondence to <a href="mailto:christian.merz@50hertz.com">christian.merz@50hertz.com</a>.

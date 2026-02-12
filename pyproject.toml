@@ -60,9 +60,6 @@ pypowsybl = ["pypowsybl>=1.13.0"]
 pandapower = ["pandapower>=3.0.0"]
 
 [dependency-groups]
-ci = [
-    "commitizen>=4.9.1",
-]
 dev = [
     "pep8-naming",
     "pre-commit",

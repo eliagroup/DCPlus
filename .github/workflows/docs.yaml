@@ -1,0 +1,35 @@
+# Copyright 2026 50Hertz Transmission GmbH and Elia Transmission Belgium SA/NV
+#
+# This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
+# If a copy of the MPL was not distributed with this file,
+# you can obtain one at https://mozilla.org/MPL/2.0/.
+# Mozilla Public License, version 2.0
+
+name: Publish Documentation
+
+on:
+  push:
+    branches:
+      - main
+
+permissions: {}
+
+jobs:
+  publish-docs:
+    environment: github_pages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+        with:
+          ssh-key: ${{ secrets.RELEASE_BOT_KEY }}
+
+      - name: Setup Python and install dependencies
+        uses: ./.github/actions/setup-python
+        with:
+          sync-args: '--only-group doc --frozen'
+
+      - name: Publish documentation to GitHub Pages
+        run: uv run --no-sync mkdocs gh-deploy --force
