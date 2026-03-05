@@ -18,9 +18,7 @@ updates:
       interval: "weekly"
     cooldown:
       default-days: 10
-  - package-ecosystem: "pre-commit"
+  - package-ecosystem: "pre-commit" # Cooldown not supported
     directory: "/"
     schedule:
       interval: "weekly"
-    cooldown:
-      default-days: 10
