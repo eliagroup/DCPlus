@@ -117,18 +117,6 @@ repos:
         name: "Bandit: scan for security issues"
         description: Security linter for Python code.
         args: [--config, pyproject.toml, "-iii", "-lll"] # Only report HIGH severity & HIGH confidence
-  - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.8.22
-    hooks:
-      - id: uv-export
-        args:
-          [
-            --no-hashes,
-            --frozen,
-            --format=requirements.txt,
-            --output-file=requirements.txt,
-            --quiet,
-          ]
   - repo: https://github.com/tcort/markdown-link-check
     rev: v3.14.2
     hooks:
