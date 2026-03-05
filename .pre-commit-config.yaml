@@ -79,7 +79,7 @@ repos:
           - --preserve-cell-metadata
           - --remove-all-notebook-metadata
   - repo: https://github.com/kynan/nbstripout
-    rev: 0.8.1
+    rev: 0.9.1
     hooks:
       - id: nbstripout
 
