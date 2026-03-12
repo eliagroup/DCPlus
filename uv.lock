@@ -1501,15 +1501,15 @@ wheels = [
 
 [[package]]
 name = "numpydantic"
-version = "1.7.0"
+version = "1.8.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/59/ba/6bf5e0a7cc3fbfbb02a7824926cad73c58df374322eb7728b378023a76dc/numpydantic-1.7.0.tar.gz", hash = "sha256:268285bee026d9dfdf23efeee13f60c3b75d47de2ffdf2e58b4f0c17a6824e3b", size = 80412, upload-time = "2025-10-11T05:23:56.654Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/83/87/59e5cac8d14bdaec8f13f954b54c8c48cf107ea19c476ba781514f4b2cc3/numpydantic-1.8.0.tar.gz", hash = "sha256:874f009d141fe70de2e096527683a722a25a32ef561a55a210d3e486e9c99327", size = 81681, upload-time = "2026-02-27T02:15:39.137Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/21/e0/42f0ea229a8b5ada24a1eae4f5522b80ab65b4083f5cea4c7372bc894af3/numpydantic-1.7.0-py3-none-any.whl", hash = "sha256:81314ed00423efa954a711a48003dba5382156e899f677f405ce043f5296b090", size = 86734, upload-time = "2025-10-11T05:23:55.003Z" },
+    { url = "https://files.pythonhosted.org/packages/97/3f/ba491e30e8be2996a5ee31cf395f445a34c10519156ec15c6edb83e66f23/numpydantic-1.8.0-py3-none-any.whl", hash = "sha256:7c9586f50bbdf331b9a6b3a15b86cd1afa42096af20df1bf1f3620031dc393f3", size = 87589, upload-time = "2026-02-27T02:01:46.092Z" },
 ]
 
 [[package]]
