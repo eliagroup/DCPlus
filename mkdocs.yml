@@ -10,7 +10,7 @@ site_name: DC Plus
 repo_url: https://eliagroup.github.io/DCPlus/
 repo_name: EliaGroup-OpenSource/DCPlus
 
-copyright: Copyright &copy; 2026 <a href="https://www.eliagroup.eu/">Elia Group</a>. Correspondence to <a href="mailto:georg.mensah@50hertz.com">georg.mensah@50hertz.com</a>.
+copyright: Copyright &copy; 2026 <a href="https://www.eliagroup.eu/">50Hertz Transmission GmbH and Elia Transmission Belgium SA/NV</a>. Correspondence to <a href="mailto:loadflowsolver@eliagroup.eu/a>.
 strict: true
 nav:
   - Getting started:
