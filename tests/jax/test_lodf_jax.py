@@ -107,7 +107,7 @@ def test_lodf_jax_full_rank_update_compare_powsybl(get_net):
     y_matrix_n0 = _get_admittance_matrix_from_network_data(dynamic_info)
     mismatch_n0 = calculate_nodal_mismatch_network_data(dynamic_network_data=dynamic_info, y_matrix=y_matrix_n0)
 
-    # hotstart precition
+    # hotstart precision
     if isinstance(get_net(), pypowsybl.network.Network):
         precition = 1e-11
     else:

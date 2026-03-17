@@ -77,7 +77,7 @@ def _create_network_data(
 
     Returns
     -------
-    tuple[StaticNetworkInformation, DynamicNetworkInformation, NetworkStringInformation]
+    tuple[StaticNetworkInformation, DynamicNetworkInformation, StringNetworkInformation]
         The static, dynamic and string network information.
     """
     # get only main grid

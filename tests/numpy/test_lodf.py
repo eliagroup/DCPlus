@@ -43,7 +43,7 @@ def test_lodf_full_rank_update_multi_outage():
 
     is_bridge = _find_bridges(dynamic_info)
     for outage_idx in np.flatnonzero(~is_bridge):
-        # restet dynamic info
+        # reset dynamic info
         dynamic_info_n2 = deepcopy(dynamic_info)
         # N-2 test
 
