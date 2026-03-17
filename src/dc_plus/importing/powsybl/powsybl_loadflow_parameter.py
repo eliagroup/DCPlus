@@ -16,7 +16,9 @@ from pypowsybl.loadflow import Parameters as LoadFlowParameters
 logger = logging.getLogger(__name__)
 
 
-def get_powsybl_loadflow_parameter(mode: Literal["default", "academic", "hotstart_test", "one_step", "real"]) -> LoadFlowParameters:
+def get_powsybl_loadflow_parameter(
+    mode: Literal["default", "academic", "hotstart_test", "one_step", "real"],
+) -> LoadFlowParameters:
     """Get the powsybl load flow parameters.
 
     Parameters
@@ -28,6 +30,7 @@ def get_powsybl_loadflow_parameter(mode: Literal["default", "academic", "hotstar
         - "hotstart_test": same as default, but with increased accuracy
         - "one_step": one step mode
         - "real": real mode
+
     Returns
     -------
     LoadFlowParameters

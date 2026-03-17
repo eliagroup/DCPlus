@@ -35,17 +35,17 @@ class SolverLoadflowResults:
 
 
 def _prepare_voltages_for_currents_not_linearized(
-    theta_post: Float[jnp.ndarray, "n_mon_bus"],
-    vm_post: Float[jnp.ndarray, "n_mon_bus"],
+    theta_post: Float[jnp.ndarray, " n_mon_bus"],
+    vm_post: Float[jnp.ndarray, " n_mon_bus"],
     dtype: jnp.dtype,
     complex_dtype: jnp.dtype,
-) -> Complex128[jnp.ndarray, "n_mon_bus"]:
+) -> Complex128[jnp.ndarray, " n_mon_bus"]:
     """Build complex monitored-bus voltages from NR state updates.
 
     Parameters    ----------
-    theta_post: Float[jnp.ndarray, "n_mon_bus"]
+    theta_post: Float[jnp.ndarray, " n_mon_bus"]
         Post-contingency voltage angle updates for monitored buses.
-    vm_post: Float[jnp.ndarray, "n_mon_bus"]
+    vm_post: Float[jnp.ndarray, " n_mon_bus"]
         Post-contingency voltage magnitude updates for monitored buses.
     dtype: jnp.dtype
         Data type for intermediate computations.
@@ -54,7 +54,7 @@ def _prepare_voltages_for_currents_not_linearized(
 
     Returns
     -------
-    Complex128[jnp.ndarray, "n_mon_bus"]
+    Complex128[jnp.ndarray, " n_mon_bus"]
         Complex voltage values for monitored buses, ready for current calculations.
     """
     one_j = jnp.asarray(1j, dtype=complex_dtype)
@@ -64,36 +64,36 @@ def _prepare_voltages_for_currents_not_linearized(
 
 
 def _calculate_branch_currents(
-    v_post: Complex128[jnp.ndarray, "n_mon_bus"],
-    f_pos_safe: Int[jnp.ndarray, "n_mon_br"],
-    t_pos_safe: Int[jnp.ndarray, "n_mon_br"],
-    y_ff_mon: Complex128[jnp.ndarray, "n_mon_br"],
-    y_ft_mon: Complex128[jnp.ndarray, "n_mon_br"],
-    y_tf_mon: Complex128[jnp.ndarray, "n_mon_br"],
-    y_tt_mon: Complex128[jnp.ndarray, "n_mon_br"],
+    v_post: Complex128[jnp.ndarray, " n_mon_bus"],
+    f_pos_safe: Int[jnp.ndarray, " n_mon_br"],
+    t_pos_safe: Int[jnp.ndarray, " n_mon_br"],
+    y_ff_mon: Complex128[jnp.ndarray, " n_mon_br"],
+    y_ft_mon: Complex128[jnp.ndarray, " n_mon_br"],
+    y_tf_mon: Complex128[jnp.ndarray, " n_mon_br"],
+    y_tt_mon: Complex128[jnp.ndarray, " n_mon_br"],
 ) -> Tuple[
-    Complex128[jnp.ndarray, "n_mon_br"],
-    Complex128[jnp.ndarray, "n_mon_br"],
-    Complex128[jnp.ndarray, "n_mon_br"],
-    Complex128[jnp.ndarray, "n_mon_br"],
+    Complex128[jnp.ndarray, " n_mon_br"],
+    Complex128[jnp.ndarray, " n_mon_br"],
+    Complex128[jnp.ndarray, " n_mon_br"],
+    Complex128[jnp.ndarray, " n_mon_br"],
 ]:
     """Gather branch endpoint voltages and compute monitored currents.
 
     Parameters
     ----------
-    v_post: Complex128[jnp.ndarray, "n_mon_bus"]
+    v_post: Complex128[jnp.ndarray, " n_mon_bus"]
         Complex voltage values for monitored buses.
-    f_pos_safe: Int[jnp.ndarray, "n_mon_br"]
+    f_pos_safe: Int[jnp.ndarray, " n_mon_br"]
         Safe from bus position indices for monitored branches.
-    t_pos_safe: Int[jnp.ndarray, "n_mon_br"]
+    t_pos_safe: Int[jnp.ndarray, " n_mon_br"]
         Safe to bus position indices for monitored branches.
-    y_ff_mon: Complex128[jnp.ndarray, "n_mon_br"]
+    y_ff_mon: Complex128[jnp.ndarray, " n_mon_br"]
         Monitored branch admittance from-from components.
-    y_ft_mon: Complex128[jnp.ndarray, "n_mon_br"]
+    y_ft_mon: Complex128[jnp.ndarray, " n_mon_br"]
         Monitored branch admittance from-to components.
-    y_tf_mon: Complex128[jnp.ndarray, "n_mon_br"]
+    y_tf_mon: Complex128[jnp.ndarray, " n_mon_br"]
         Monitored branch admittance to-from components.
-    y_tt_mon: Complex128[jnp.ndarray, "n_mon_br"]
+    y_tt_mon: Complex128[jnp.ndarray, " n_mon_br"]
         Monitored branch admittance to-to components.
 
     Returns
@@ -112,16 +112,16 @@ def _calculate_branch_currents(
 
 
 def _compute_complex_branch_powers(
-    v_from: Complex128[jnp.ndarray, "n_mon_br"],
-    v_to: Complex128[jnp.ndarray, "n_mon_br"],
-    current_from: Complex128[jnp.ndarray, "n_mon_br"],
-    current_to: Complex128[jnp.ndarray, "n_mon_br"],
-    end_mask: Float[jnp.ndarray, "n_mon_br"],
-    mon_br: Int[jnp.ndarray, "n_mon_br"],
+    v_from: Complex128[jnp.ndarray, " n_mon_br"],
+    v_to: Complex128[jnp.ndarray, " n_mon_br"],
+    current_from: Complex128[jnp.ndarray, " n_mon_br"],
+    current_to: Complex128[jnp.ndarray, " n_mon_br"],
+    end_mask: Float[jnp.ndarray, " n_mon_br"],
+    mon_br: Int[jnp.ndarray, " n_mon_br"],
     outage_idx: Int[jnp.ndarray, ""],
 ) -> Tuple[
-    Complex128[jnp.ndarray, "n_mon_br"],
-    Complex128[jnp.ndarray, "n_mon_br"],
+    Complex128[jnp.ndarray, " n_mon_br"],
+    Complex128[jnp.ndarray, " n_mon_br"],
 ]:
     """Compute complex power flow endpoints for monitored branches."""
     end_mask_complex = end_mask.astype(v_from.dtype)
@@ -139,38 +139,38 @@ def _compute_complex_branch_powers(
 
 
 def _prepare_monitored_branch_pack(
-    branch_from: Int[jnp.ndarray, "n_branches"],
-    branch_to: Int[jnp.ndarray, "n_branches"],
-    y_ff: Complex128[jnp.ndarray, "n_branches"],
-    y_ft: Complex128[jnp.ndarray, "n_branches"],
-    y_tf: Complex128[jnp.ndarray, "n_branches"],
-    y_tt: Complex128[jnp.ndarray, "n_branches"],
-    monitor_branch_indices: Int[jnp.ndarray, "n_mon_br"],
-    bus_to_mon_index: Int[jnp.ndarray, "n_buses"],
+    branch_from: Int[jnp.ndarray, " n_branches"],
+    branch_to: Int[jnp.ndarray, " n_branches"],
+    y_ff: Complex128[jnp.ndarray, " n_branches"],
+    y_ft: Complex128[jnp.ndarray, " n_branches"],
+    y_tf: Complex128[jnp.ndarray, " n_branches"],
+    y_tt: Complex128[jnp.ndarray, " n_branches"],
+    monitor_branch_indices: Int[jnp.ndarray, " n_mon_br"],
+    bus_to_mon_index: Int[jnp.ndarray, " n_buses"],
     dtype: jnp.dtype,
 ) -> Tuple[
-    Int[jnp.ndarray, "n_mon_br"],
-    Complex128[jnp.ndarray, "n_mon_br"],
-    Complex128[jnp.ndarray, "n_mon_br"],
-    Complex128[jnp.ndarray, "n_mon_br"],
-    Complex128[jnp.ndarray, "n_mon_br"],
-    Int[jnp.ndarray, "n_mon_br"],
-    Int[jnp.ndarray, "n_mon_br"],
-    Float[jnp.ndarray, "n_mon_br"],
+    Int[jnp.ndarray, " n_mon_br"],
+    Complex128[jnp.ndarray, " n_mon_br"],
+    Complex128[jnp.ndarray, " n_mon_br"],
+    Complex128[jnp.ndarray, " n_mon_br"],
+    Complex128[jnp.ndarray, " n_mon_br"],
+    Int[jnp.ndarray, " n_mon_br"],
+    Int[jnp.ndarray, " n_mon_br"],
+    Float[jnp.ndarray, " n_mon_br"],
 ]:
     """Gather monitored branch admittances and prepare safe bus indices.
 
     Parameters
     ----------
-    branch_from: Int[jnp.ndarray, "n_branches"]
+    branch_from: Int[jnp.ndarray, " n_branches"]
         From bus indices for all branches.
-    branch_to: Int[jnp.ndarray, "n_branches"]
+    branch_to: Int[jnp.ndarray, " n_branches"]
         To bus indices for all branches.
-    y_ff, y_ft, y_tf, y_tt: Complex128[jnp.ndarray, "n_branches"]
+    y_ff, y_ft, y_tf, y_tt: Complex128[jnp.ndarray, " n_branches"]
         Pi-model admittance components for all branches.
-    monitor_branch_indices: Int[jnp.ndarray, "n_mon_br"]
+    monitor_branch_indices: Int[jnp.ndarray, " n_mon_br"]
         Indices of monitored branches.
-    bus_to_mon_index: Int[jnp.ndarray, "n_buses"]
+    bus_to_mon_index: Int[jnp.ndarray, " n_buses"]
         Mapping from bus indices to monitored bus positions (-1 if not monitored).
     dtype: jnp.dtype
         Data type for the end mask.
@@ -178,13 +178,13 @@ def _prepare_monitored_branch_pack(
     Returns
     -------
     Tuple containing:
-    - mon_br: Int[jnp.ndarray, "n_mon_br"]
+    - mon_br: Int[jnp.ndarray, " n_mon_br"]
         The indices of the monitored branches.
-    - y_ff_mon, y_ft_mon, y_tf_mon, y_tt_mon: Complex128[jnp.ndarray, "n_mon_br"]
+    - y_ff_mon, y_ft_mon, y_tf_mon, y_tt_mon: Complex128[jnp.ndarray, " n_mon_br"]
         The admittance components for the monitored branches.
-    - f_pos_safe, t_pos_safe: Int[jnp.ndarray, "n_mon_br"]
+    - f_pos_safe, t_pos_safe: Int[jnp.ndarray, " n_mon_br"]
         Safe bus position indices for the from and to buses of monitored branches.
-    - end_mask: Float[jnp.ndarray, "n_mon_br"]
+    - end_mask: Float[jnp.ndarray, " n_mon_br"]
         Mask indicating which monitored branches have both endpoints monitored.
     """
     mon_br = jnp.asarray(monitor_branch_indices, dtype=jnp.int32)
@@ -217,34 +217,34 @@ def _prepare_monitored_branch_pack(
 
 
 def _compute_monitored_branch_currents(
-    theta_all: Float[jnp.ndarray, "n_outages n_mon_bus"],
-    vm_all: Float[jnp.ndarray, "n_outages n_mon_bus"],
-    f_pos_safe: Int[jnp.ndarray, "n_mon_br"],
-    t_pos_safe: Int[jnp.ndarray, "n_mon_br"],
-    y_ff_mon: Complex128[jnp.ndarray, "n_mon_br"],
-    y_ft_mon: Complex128[jnp.ndarray, "n_mon_br"],
-    y_tf_mon: Complex128[jnp.ndarray, "n_mon_br"],
-    y_tt_mon: Complex128[jnp.ndarray, "n_mon_br"],
+    theta_all: Float[jnp.ndarray, " n_outages n_mon_bus"],
+    vm_all: Float[jnp.ndarray, " n_outages n_mon_bus"],
+    f_pos_safe: Int[jnp.ndarray, " n_mon_br"],
+    t_pos_safe: Int[jnp.ndarray, " n_mon_br"],
+    y_ff_mon: Complex128[jnp.ndarray, " n_mon_br"],
+    y_ft_mon: Complex128[jnp.ndarray, " n_mon_br"],
+    y_tf_mon: Complex128[jnp.ndarray, " n_mon_br"],
+    y_tt_mon: Complex128[jnp.ndarray, " n_mon_br"],
     dtype: jnp.dtype,
 ) -> Tuple[
-    Complex128[jnp.ndarray, "n_outages n_mon_br"],
-    Complex128[jnp.ndarray, "n_outages n_mon_br"],
-    Complex128[jnp.ndarray, "n_outages n_mon_br"],
-    Complex128[jnp.ndarray, "n_outages n_mon_br"],
+    Complex128[jnp.ndarray, " n_outages n_mon_br"],
+    Complex128[jnp.ndarray, " n_outages n_mon_br"],
+    Complex128[jnp.ndarray, " n_outages n_mon_br"],
+    Complex128[jnp.ndarray, " n_outages n_mon_br"],
 ]:
     """Vectorized monitored branch current computation for all outages.
 
     Parameters
     ----------
-    theta_all: Float[jnp.ndarray, "n_outages n_mon_bus"]
+    theta_all: Float[jnp.ndarray, " n_outages n_mon_bus"]
         Post-contingency voltage angles for monitored buses across all outages.
-    vm_all: Float[jnp.ndarray, "n_outages n_mon_bus"]
+    vm_all: Float[jnp.ndarray, " n_outages n_mon_bus"]
         Post-contingency voltage magnitudes for monitored buses across all outages.
-    f_pos_safe: Int[jnp.ndarray, "n_mon_br"]
+    f_pos_safe: Int[jnp.ndarray, " n_mon_br"]
         Safe from bus position indices for monitored branches.
-    t_pos_safe: Int[jnp.ndarray, "n_mon_br"]
+    t_pos_safe: Int[jnp.ndarray, " n_mon_br"]
         Safe to bus position indices for monitored branches.
-    y_ff_mon, y_ft_mon, y_tf_mon, y_tt_mon: Complex128[jnp.ndarray, "n_mon_br"]
+    y_ff_mon, y_ft_mon, y_tf_mon, y_tt_mon: Complex128[jnp.ndarray, " n_mon_br"]
         Admittance components for monitored branches.
     dtype: jnp.dtype
         Data type for intermediate computations.
@@ -252,13 +252,13 @@ def _compute_monitored_branch_currents(
     Returns
     -------
     Tuple containing:
-    - v_from_all: Complex128[jnp.ndarray, "n_outages n_mon_br"]
+    - v_from_all: Complex128[jnp.ndarray, " n_outages n_mon_br"]
         Voltages at the from buses of monitored branches for all outages.
-    - v_to_all: Complex128[jnp.ndarray, "n_outages n_mon_br"]
+    - v_to_all: Complex128[jnp.ndarray, " n_outages n_mon_br"]
         Voltages at the to buses of monitored branches for all outages.
-    - i_from_all: Complex128[jnp.ndarray, "n_outages n_mon_br"]
+    - i_from_all: Complex128[jnp.ndarray, " n_outages n_mon_br"]
         Currents at the from buses of monitored branches for all outages.
-    - i_to_all: Complex128[jnp.ndarray, "n_outages n_mon_br"]
+    - i_to_all: Complex128[jnp.ndarray, " n_outages n_mon_br"]
         Currents at the to buses of monitored branches for all outages.
     """
     complex_dtype = y_ff_mon.dtype
@@ -266,10 +266,10 @@ def _compute_monitored_branch_currents(
     def _per_outage(
         theta_post: jnp.ndarray, vm_post: jnp.ndarray
     ) -> Tuple[
-        Complex128[jnp.ndarray, "n_mon_br"],
-        Complex128[jnp.ndarray, "n_mon_br"],
-        Complex128[jnp.ndarray, "n_mon_br"],
-        Complex128[jnp.ndarray, "n_mon_br"],
+        Complex128[jnp.ndarray, " n_mon_br"],
+        Complex128[jnp.ndarray, " n_mon_br"],
+        Complex128[jnp.ndarray, " n_mon_br"],
+        Complex128[jnp.ndarray, " n_mon_br"],
     ]:
         v_post = _prepare_voltages_for_currents_not_linearized(
             theta_post=theta_post,
@@ -291,27 +291,27 @@ def _compute_monitored_branch_currents(
 
 
 def line_outage_post_contingency_voltages_current(
-    jacobian_inv_transposed: Float[jnp.ndarray, "n_eq n_eq"],
-    outage_branch_idx: Int[jnp.ndarray, "n_outages"],
-    branch_from: Int[jnp.ndarray, "n_branches"],
-    branch_to: Int[jnp.ndarray, "n_branches"],
-    v_mag_hat: Float[jnp.ndarray, "n_buses"],
-    theta_hat: Float[jnp.ndarray, "n_buses"],
-    angle_component_indices: Int[jnp.ndarray, "n_eq_jacobian"],
-    magnitude_component_indices: Int[jnp.ndarray, "n_eq_jacobian"],
-    y_ff: Complex128[jnp.ndarray, "n_branches"],
-    y_ft: Complex128[jnp.ndarray, "n_branches"],
-    y_tf: Complex128[jnp.ndarray, "n_branches"],
-    y_tt: Complex128[jnp.ndarray, "n_branches"],
-    monitor_bus_indices: Int[jnp.ndarray, "n_mon_bus"],
-    branch_pq_base: Float[jnp.ndarray, "n_branches 4"],
-    monitor_branch_indices: Int[jnp.ndarray, "n_mon_br"],
-    bus_to_mon_index: Int[jnp.ndarray, "n_buses"],
+    jacobian_inv_transposed: Float[jnp.ndarray, " n_eq n_eq"],
+    outage_branch_idx: Int[jnp.ndarray, " n_outages"],
+    branch_from: Int[jnp.ndarray, " n_branches"],
+    branch_to: Int[jnp.ndarray, " n_branches"],
+    v_mag_hat: Float[jnp.ndarray, " n_buses"],
+    theta_hat: Float[jnp.ndarray, " n_buses"],
+    angle_component_indices: Int[jnp.ndarray, " n_eq_jacobian"],
+    magnitude_component_indices: Int[jnp.ndarray, " n_eq_jacobian"],
+    y_ff: Complex128[jnp.ndarray, " n_branches"],
+    y_ft: Complex128[jnp.ndarray, " n_branches"],
+    y_tf: Complex128[jnp.ndarray, " n_branches"],
+    y_tt: Complex128[jnp.ndarray, " n_branches"],
+    monitor_bus_indices: Int[jnp.ndarray, " n_mon_bus"],
+    branch_pq_base: Float[jnp.ndarray, " n_branches 4"],
+    monitor_branch_indices: Int[jnp.ndarray, " n_mon_br"],
+    bus_to_mon_index: Int[jnp.ndarray, " n_buses"],
 ) -> Tuple[
-    Float[jnp.ndarray, "n_outages n_mon_bus"],
-    Float[jnp.ndarray, "n_outages n_mon_bus"],
-    Complex128[jnp.ndarray, "n_outages n_mon_br"],
-    Complex128[jnp.ndarray, "n_outages n_mon_br"],
+    Float[jnp.ndarray, " n_outages n_mon_bus"],
+    Float[jnp.ndarray, " n_outages n_mon_bus"],
+    Complex128[jnp.ndarray, " n_outages n_mon_br"],
+    Complex128[jnp.ndarray, " n_outages n_mon_br"],
 ]:
     """Compute post-contingency monitored bus voltages and branch currents."""
     jacobian_inv_transposed = jnp.asarray(jacobian_inv_transposed)
@@ -379,22 +379,22 @@ def line_outage_post_contingency_voltages_current(
 
 
 def line_outage_post_contingency_monitored(
-    jacobian_inv_transposed: Float[jnp.ndarray, "n_eq n_eq"],
-    outage_branch_idx: Int[jnp.ndarray, "n_outages"],
-    branch_from: Int[jnp.ndarray, "n_branches"],
-    branch_to: Int[jnp.ndarray, "n_branches"],
-    v_mag_hat: Float[jnp.ndarray, "n_buses"],
-    theta_hat: Float[jnp.ndarray, "n_buses"],
-    angle_component_indices: Int[jnp.ndarray, "n_eq_jacobian"],
-    magnitude_component_indices: Int[jnp.ndarray, "n_eq_jacobian"],
-    y_ff: Complex128[jnp.ndarray, "n_branches"],
-    y_ft: Complex128[jnp.ndarray, "n_branches"],
-    y_tf: Complex128[jnp.ndarray, "n_branches"],
-    y_tt: Complex128[jnp.ndarray, "n_branches"],
-    monitor_bus_indices: Int[jnp.ndarray, "n_mon_bus"],
-    branch_pq_base: Float[jnp.ndarray, "n_branches 4"],
-    monitor_branch_indices: Int[jnp.ndarray, "n_mon_br"],
-    bus_to_mon_index: Int[jnp.ndarray, "n_buses"],
+    jacobian_inv_transposed: Float[jnp.ndarray, " n_eq n_eq"],
+    outage_branch_idx: Int[jnp.ndarray, " n_outages"],
+    branch_from: Int[jnp.ndarray, " n_branches"],
+    branch_to: Int[jnp.ndarray, " n_branches"],
+    v_mag_hat: Float[jnp.ndarray, " n_buses"],
+    theta_hat: Float[jnp.ndarray, " n_buses"],
+    angle_component_indices: Int[jnp.ndarray, " n_eq_jacobian"],
+    magnitude_component_indices: Int[jnp.ndarray, " n_eq_jacobian"],
+    y_ff: Complex128[jnp.ndarray, " n_branches"],
+    y_ft: Complex128[jnp.ndarray, " n_branches"],
+    y_tf: Complex128[jnp.ndarray, " n_branches"],
+    y_tt: Complex128[jnp.ndarray, " n_branches"],
+    monitor_bus_indices: Int[jnp.ndarray, " n_mon_bus"],
+    branch_pq_base: Float[jnp.ndarray, " n_branches 4"],
+    monitor_branch_indices: Int[jnp.ndarray, " n_mon_br"],
+    bus_to_mon_index: Int[jnp.ndarray, " n_buses"],
 ) -> SolverLoadflowResults:
     """Compute post-contingency bus states and monitored branch powers."""
     jacobian_inv_transposed = jnp.asarray(jacobian_inv_transposed)

@@ -227,16 +227,16 @@ def _compute_branch_delta_submatrix_from_admittance(
 
 def _prepare_low_rank_factors_from_admittance(
     branch_idx: Int[np.ndarray, ""],
-    branch_from: Int[np.ndarray, "n_branches"],
-    branch_to: Int[np.ndarray, "n_branches"],
-    v_mag_hat: Float[np.ndarray, "n_buses"],
-    theta_hat: Float[np.ndarray, "n_buses"],
-    y_ff: Complex128[np.ndarray, "n_branches"],
-    y_ft: Complex128[np.ndarray, "n_branches"],
-    y_tf: Complex128[np.ndarray, "n_branches"],
-    y_tt: Complex128[np.ndarray, "n_branches"],
-    angle_component_indices: Int[np.ndarray, "n_eq_jacobian"],
-    magnitude_component_indices: Int[np.ndarray, "n_eq_jacobian"],
+    branch_from: Int[np.ndarray, " n_branches"],
+    branch_to: Int[np.ndarray, " n_branches"],
+    v_mag_hat: Float[np.ndarray, " n_buses"],
+    theta_hat: Float[np.ndarray, " n_buses"],
+    y_ff: Complex128[np.ndarray, " n_branches"],
+    y_ft: Complex128[np.ndarray, " n_branches"],
+    y_tf: Complex128[np.ndarray, " n_branches"],
+    y_tt: Complex128[np.ndarray, " n_branches"],
+    angle_component_indices: Int[np.ndarray, " n_eq_jacobian"],
+    magnitude_component_indices: Int[np.ndarray, " n_eq_jacobian"],
 ) -> Tuple[Float[np.ndarray, "4 4"], Int[np.ndarray, "4"]]:
     """Build low-rank factors for a line outage from pi-model admittances.
 

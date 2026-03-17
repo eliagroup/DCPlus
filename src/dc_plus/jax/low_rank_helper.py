@@ -144,16 +144,16 @@ def _compute_branch_delta_submatrix_from_admittance(
 
 def _prepare_low_rank_factors_from_admittance(
     branch_idx: Int[jnp.ndarray, ""],
-    branch_from: Int[jnp.ndarray, "n_branches"],
-    branch_to: Int[jnp.ndarray, "n_branches"],
-    v_mag_hat: Float[jnp.ndarray, "n_buses"],
-    theta_hat: Float[jnp.ndarray, "n_buses"],
-    y_ff: Complex128[jnp.ndarray, "n_branches"],
-    y_ft: Complex128[jnp.ndarray, "n_branches"],
-    y_tf: Complex128[jnp.ndarray, "n_branches"],
-    y_tt: Complex128[jnp.ndarray, "n_branches"],
-    angle_component_indices: Int[jnp.ndarray, "n_buses"],
-    magnitude_component_indices: Int[jnp.ndarray, "n_buses"],
+    branch_from: Int[jnp.ndarray, " n_branches"],
+    branch_to: Int[jnp.ndarray, " n_branches"],
+    v_mag_hat: Float[jnp.ndarray, " n_buses"],
+    theta_hat: Float[jnp.ndarray, " n_buses"],
+    y_ff: Complex128[jnp.ndarray, " n_branches"],
+    y_ft: Complex128[jnp.ndarray, " n_branches"],
+    y_tf: Complex128[jnp.ndarray, " n_branches"],
+    y_tt: Complex128[jnp.ndarray, " n_branches"],
+    angle_component_indices: Int[jnp.ndarray, " n_buses"],
+    magnitude_component_indices: Int[jnp.ndarray, " n_buses"],
 ) -> Tuple[Float[jnp.ndarray, "4 4"], Int[jnp.ndarray, "4"], jnp.ndarray]:
     """Build low-rank factors for a line outage from pi-model admittances."""
     safe_idx, valid_mask = _branch_state_indices(

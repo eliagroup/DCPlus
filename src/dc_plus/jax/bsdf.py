@@ -39,11 +39,11 @@ from .low_rank_helper import _compute_branch_delta_submatrix_from_admittance
 
 
 def _full_rank_lodf(
-    jacobian_inv_transposed: Float[jnp.ndarray, "n_eq n_eq"],
-    delta_block: Float[jnp.ndarray, "k k"],
-    idx_list: Int[jnp.ndarray, "k"],
+    jacobian_inv_transposed: Float[jnp.ndarray, " n_eq n_eq"],
+    delta_block: Float[jnp.ndarray, " k k"],
+    idx_list: Int[jnp.ndarray, " k"],
     idx_mask: jnp.ndarray,
-) -> Float[jnp.ndarray, "n_eq n_eq"]:
+) -> Float[jnp.ndarray, " n_eq n_eq"]:
     """Legacy full-rank update helper."""
     dtype = jacobian_inv_transposed.dtype
     safe_indices = jnp.where(idx_mask, idx_list, 0)
@@ -65,21 +65,21 @@ def _full_rank_lodf(
 
 @jax.jit
 def _compute_bsdf_update_impl(
-    jacobian_inv_transposed: Float[jnp.ndarray, "n_eq n_eq"],
+    jacobian_inv_transposed: Float[jnp.ndarray, " n_eq n_eq"],
     bus_to_split: int,
     new_bus_b_index: int,
-    branches_connected_to_bus_b: Int[jnp.ndarray, "n_branches_B"],
-    branch_from: Int[jnp.ndarray, "n_branches"],
-    branch_to: Int[jnp.ndarray, "n_branches"],
-    v_mag_hat: Float[jnp.ndarray, "n_buses"],
-    theta_hat: Float[jnp.ndarray, "n_buses"],
-    y_ff: Complex128[jnp.ndarray, "n_branches"],
-    y_ft: Complex128[jnp.ndarray, "n_branches"],
-    y_tf: Complex128[jnp.ndarray, "n_branches"],
-    y_tt: Complex128[jnp.ndarray, "n_branches"],
-    angle_component_indices: Int[jnp.ndarray, "n_eq_jacobian"],
-    magnitude_component_indices: Int[jnp.ndarray, "n_eq_jacobian"],
-) -> Float[jnp.ndarray, "n_eq n_eq"]:
+    branches_connected_to_bus_b: Int[jnp.ndarray, " n_branches_B"],
+    branch_from: Int[jnp.ndarray, " n_branches"],
+    branch_to: Int[jnp.ndarray, " n_branches"],
+    v_mag_hat: Float[jnp.ndarray, " n_buses"],
+    theta_hat: Float[jnp.ndarray, " n_buses"],
+    y_ff: Complex128[jnp.ndarray, " n_branches"],
+    y_ft: Complex128[jnp.ndarray, " n_branches"],
+    y_tf: Complex128[jnp.ndarray, " n_branches"],
+    y_tt: Complex128[jnp.ndarray, " n_branches"],
+    angle_component_indices: Int[jnp.ndarray, " n_eq_jacobian"],
+    magnitude_component_indices: Int[jnp.ndarray, " n_eq_jacobian"],
+) -> Float[jnp.ndarray, " n_eq n_eq"]:
     """Legacy implementation: materialize updated inverse transpose."""
     dtype = jacobian_inv_transposed.dtype
     n_eq = jacobian_inv_transposed.shape[0]
@@ -255,25 +255,25 @@ def _compute_bsdf_update_impl(
 
 
 def compute_bsdf_update(
-    jacobian_inv_transposed: Float[jnp.ndarray, "n_eq n_eq"],
+    jacobian_inv_transposed: Float[jnp.ndarray, " n_eq n_eq"],
     bus_to_split: int,
     new_bus_b_index: int,
     new_bus_type: int,
-    branches_connected_to_bus_b: Int[jnp.ndarray, "n_branches_B"],
-    shunt_connected_to_bus_b: Int[jnp.ndarray, "n_shunts_B"],
-    branch_from: Int[jnp.ndarray, "n_branches"],
-    branch_to: Int[jnp.ndarray, "n_branches"],
-    shunt_to_bus: Int[jnp.ndarray, "n_shunts"],
-    v_mag_hat: Float[jnp.ndarray, "n_buses"],
-    theta_hat: Float[jnp.ndarray, "n_buses"],
-    y_ff: Complex128[jnp.ndarray, "n_branches"],
-    y_ft: Complex128[jnp.ndarray, "n_branches"],
-    y_tf: Complex128[jnp.ndarray, "n_branches"],
-    y_tt: Complex128[jnp.ndarray, "n_branches"],
-    y_shunt: Complex128[jnp.ndarray, "n_buses"],
-    angle_component_indices: Int[jnp.ndarray, "n_eq_jacobian"],
-    magnitude_component_indices: Int[jnp.ndarray, "n_eq_jacobian"],
-) -> Float[jnp.ndarray, "n_eq n_eq"]:
+    branches_connected_to_bus_b: Int[jnp.ndarray, " n_branches_B"],
+    shunt_connected_to_bus_b: Int[jnp.ndarray, " n_shunts_B"],
+    branch_from: Int[jnp.ndarray, " n_branches"],
+    branch_to: Int[jnp.ndarray, " n_branches"],
+    shunt_to_bus: Int[jnp.ndarray, " n_shunts"],
+    v_mag_hat: Float[jnp.ndarray, " n_buses"],
+    theta_hat: Float[jnp.ndarray, " n_buses"],
+    y_ff: Complex128[jnp.ndarray, " n_branches"],
+    y_ft: Complex128[jnp.ndarray, " n_branches"],
+    y_tf: Complex128[jnp.ndarray, " n_branches"],
+    y_tt: Complex128[jnp.ndarray, " n_branches"],
+    y_shunt: Complex128[jnp.ndarray, " n_buses"],
+    angle_component_indices: Int[jnp.ndarray, " n_eq_jacobian"],
+    magnitude_component_indices: Int[jnp.ndarray, " n_eq_jacobian"],
+) -> Float[jnp.ndarray, " n_eq n_eq"]:
     """Legacy dense inverse transpose update for BSDF.
 
     This function computes the updated Jacobian inverse transpose after a bus split
@@ -289,7 +289,7 @@ def compute_bsdf_update(
 
     Parameters
     ----------
-    jacobian_inv_transposed : Float[jnp.ndarray, "n_eq n_eq"]
+    jacobian_inv_transposed : Float[jnp.ndarray, " n_eq n_eq"]
         Current Jacobian inverse transpose, shape (n_eq, n_eq).
     bus_to_split : int
         Index of the bus being split.
@@ -297,38 +297,38 @@ def compute_bsdf_update(
         Index of the new bus being created.
     new_bus_type : int
         Type of the new bus (e.g., PQ, PV, slack).
-    branches_connected_to_bus_b : Int[jnp.ndarray, "n_branches_B"]
+    branches_connected_to_bus_b : Int[jnp.ndarray, " n_branches_B"]
         Indices of branches connected to the bus being split.
-    shunt_connected_to_bus_b : Int[jnp.ndarray, "n_shunts_B"]
+    shunt_connected_to_bus_b : Int[jnp.ndarray, " n_shunts_B"]
         Indices of shunts connected to the bus being split.
-    branch_from : Int[jnp.ndarray, "n_branches"]
+    branch_from : Int[jnp.ndarray, " n_branches"]
         "From" bus indices for all branches.
-    branch_to : Int[jnp.ndarray, "n_branches"]
+    branch_to : Int[jnp.ndarray, " n_branches"]
         "To" bus indices for all branches.
-    shunt_to_bus : Int[jnp.ndarray, "n_shunts"]
+    shunt_to_bus : Int[jnp.ndarray, " n_shunts"]
         Bus indices for all shunts.
-    v_mag_hat : Float[jnp.ndarray, "n_buses"]
+    v_mag_hat : Float[jnp.ndarray, " n_buses"]
         Voltage magnitude estimates for all buses.
-    theta_hat : Float[jnp.ndarray, "n_buses"]
+    theta_hat : Float[jnp.ndarray, " n_buses"]
         Voltage angle estimates for all buses.
-    y_ff : Complex128[jnp.ndarray, "n_branches"]
+    y_ff : Complex128[jnp.ndarray, " n_branches"]
         "From-From" admittance for all branches.
-    y_ft : Complex128[jnp.ndarray, "n_branches"]
+    y_ft : Complex128[jnp.ndarray, " n_branches"]
         "From-To" admittance for all branches.
-    y_tf : Complex128[jnp.ndarray, "n_branches"]
+    y_tf : Complex128[jnp.ndarray, " n_branches"]
         "To-From" admittance for all branches.
-    y_tt : Complex128[jnp.ndarray, "n_branches"]
+    y_tt : Complex128[jnp.ndarray, " n_branches"]
         "To-To" admittance for all branches.
-    y_shunt : Complex128[jnp.ndarray, "n_buses"]
+    y_shunt : Complex128[jnp.ndarray, " n_buses"]
         Shunt admittance for all buses.
-    angle_component_indices : Int[jnp.ndarray, "n_eq_jacobian"]
+    angle_component_indices : Int[jnp.ndarray, " n_eq_jacobian"]
         Mapping from bus indices to angle component indices in the Jacobian.
-    magnitude_component_indices : Int[jnp.ndarray, "n_eq_jacobian"]
+    magnitude_component_indices : Int[jnp.ndarray, " n_eq_jacobian"]
         Mapping from bus indices to magnitude component indices in the Jacobian.
 
     Returns
     -------
-    Float[jnp.ndarray, "n_eq n_eq"]
+    Float[jnp.ndarray, " n_eq n_eq"]
         Updated Jacobian inverse transpose after the bus split and branch re-attachments.
     """
     jacobian_arr_transposed = jnp.asarray(jacobian_inv_transposed)
