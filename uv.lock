@@ -346,6 +346,7 @@ wheels = [
 
 [[package]]
 name = "dc-plus"
+verison = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "jax" },
