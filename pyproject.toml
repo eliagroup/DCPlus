@@ -2,9 +2,7 @@
 name = "dc_plus"
 dynamic = ["version"]
 description = "A GPU based solver for an voltage informed security Analysis for topological actions."
-authors = [
-    {name = "Benjamin Petrick", email = "Benjamin.Petrick@externel.be"},
-]
+
 readme = "README.md"
 keywords = [
     "topological remedial actions",
@@ -97,7 +95,7 @@ doc = [
 # https://access.redhat.com/security/cve/cve-2025-53000
 # See https://github.com/astral-sh/uv/issues/7214#issuecomment-2340188447
 override-dependencies = [
-    "nbconvert; sys_platform == 'never'", 
+    "nbconvert; sys_platform == 'never'",
 ]
 [tool.pytest.ini_options]
 
