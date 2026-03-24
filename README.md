@@ -15,7 +15,7 @@ This repo builds DCPlus loadflow solver implementation from Elia Group. This DCP
 
 ## Getting Started
 
-If you want to get started with the engine, we highly recommend
+If you want to get started with the engine, we recommend the test [test_lodf_jax_full_rank_update_compare_powsybl](./tests/jax/test_lodf_jax.py) to get an idea how to use the solver. A more user friendly notebook will be added at a later point.
 
 ### Prerequisites
 
