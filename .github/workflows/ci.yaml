@@ -7,7 +7,12 @@
 
 name: Continuous Integration
 
-on: push
+on: 
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions: {}
 
@@ -46,6 +51,7 @@ jobs:
     if: success()
     permissions:
       contents: read
+      pull-requests: read
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository code
