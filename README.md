@@ -70,6 +70,8 @@ Team – [loadflowsolver@eliagroup.eu](mailto:loadflowsolver@eliagroup.eu)
 ---
 
 ## Acknowledgments
+Thanks to the Energy Transition Fund of the Federal Public Service Economy for their support of the OptOmni project, which led to the development of DC+.| [SPF Economie](https://economie.fgov.be/fr)
+ 
 
 We credit the authors of JAX.
 ```
