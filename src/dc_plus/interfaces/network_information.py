@@ -618,6 +618,9 @@ class StringNetworkInformation:
     E.g., load, generator, etc.
     """
 
+    injection_ids: StringArray
+    """ids of the injections, shape (n_injections,)"""
+
 
 def _check_network_data_consistency(
     dynamic_network_data: DynamicNetworkInformation,
