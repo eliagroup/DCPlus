@@ -11,8 +11,10 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
+from dc_plus.importing.powsybl.powsybl_import import DANGLING_BUS_STRING_SUFFIX
 from dc_plus.jax.bsdf import compute_bsdf_update as compute_bsdf_update_jax
 from tests.test_helper.bsdf_helper import (
+    derive_bus_order,
     get_bsdf_cases,
     prepare_bsdf_test_context,
     run_reference_one_step,
@@ -33,8 +35,8 @@ def test_bsdf_full_rank_jax(bsdf_test_case):
         bus_to_split=setup.bus_to_split,
         new_bus_b_index=setup.new_bus_index,
         new_bus_type=2,
-        branches_connected_to_bus_b=jnp.asarray(setup.branches_to_move, dtype=jnp.int32),
-        shunt_connected_to_bus_b=jnp.asarray([], dtype=jnp.int32),
+        branches_connected_to_bus_b=jnp.asarray(setup.branches_connected_to_bus_b, dtype=jnp.int32),
+        shunt_connected_to_bus_b=jnp.asarray(setup.shunt_connected_to_bus_b, dtype=jnp.int32),
         branch_from=setup.dynamic_info.branch_from_bus,
         branch_to=setup.dynamic_info.branch_to_bus,
         shunt_to_bus=setup.dynamic_info.shunt_bus_indices,
@@ -67,9 +69,9 @@ def test_bsdf_full_rank_jax(bsdf_test_case):
     )
 
     dynamic_info_split_manual = setup.dynamic_info_split_manual
-    dynamic_info_one_step = run_reference_one_step(setup.net, bsdf_test_case=bsdf_test_case)
-    bus_order = bsdf_test_case.bus_order
-    dx = -jacobian_inv_jax @ setup.mismatch_n1
+    dynamic_info_one_step, string_info_one_step = run_reference_one_step(setup.net, bsdf_test_case=bsdf_test_case)
+    bus_order = derive_bus_order(setup.split_bus_ids, string_info_one_step.bus_ids)
+    dx = -jacobian_inv_jax @ setup.mismatch_bsdf_reference
 
     theta_actual = dynamic_info_split_manual.bus_voltage_angles_rad
     vm_actual = dynamic_info_split_manual.bus_voltage_magnitudes
@@ -80,16 +82,31 @@ def test_bsdf_full_rank_jax(bsdf_test_case):
     theta_updated_J[pvpq] = theta_actual[pvpq] + dx[setup.jacobian_data_with_extra_buses.is_angle_component]
     vm_updated_J[pq] = vm_actual[pq] + dx[setup.jacobian_data_with_extra_buses.is_magnitude_component]
 
+    dangling_bus_mask = np.char.endswith(np.asarray(string_info_one_step.bus_ids, dtype=str), DANGLING_BUS_STRING_SUFFIX)
+
     # reorder bus voltages to match new ordering of manual split
     np.testing.assert_allclose(
-        dynamic_info_one_step.bus_voltage_magnitudes[bus_order],
-        vm_updated_J,
+        dynamic_info_one_step.bus_voltage_magnitudes[~dangling_bus_mask],
+        vm_updated_J[bus_order][~dangling_bus_mask],
         rtol=1e-10,
         atol=1e-10,
     )
     np.testing.assert_allclose(
-        dynamic_info_one_step.bus_voltage_angles_rad[bus_order],
-        theta_updated_J,
+        dynamic_info_one_step.bus_voltage_angles_rad[~dangling_bus_mask],
+        theta_updated_J[bus_order][~dangling_bus_mask],
         rtol=1e-10,
         atol=1e-10,
+    )
+
+    np.testing.assert_allclose(
+        dynamic_info_one_step.bus_voltage_magnitudes[dangling_bus_mask],
+        vm_updated_J[bus_order][dangling_bus_mask],
+        rtol=1e-8,
+        atol=1e-8,
+    )
+    np.testing.assert_allclose(
+        dynamic_info_one_step.bus_voltage_angles_rad[dangling_bus_mask],
+        theta_updated_J[bus_order][dangling_bus_mask],
+        rtol=1e-8,
+        atol=1e-8,
     )
