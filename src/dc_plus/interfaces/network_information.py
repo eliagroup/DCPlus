@@ -739,3 +739,6 @@ def _check_network_data_consistency(
     assert string_network_data.injection_types.shape[0] == dynamic_network_data.injection_to_bus.shape[0], (
         "Inconsistent number of injections between injection_types and injection_to_bus."
     )
+    assert string_network_data.injection_ids.shape[0] == dynamic_network_data.injection_to_bus.shape[0], (
+        "Inconsistent number of injections between injection_ids and injection_to_bus."
+    )
