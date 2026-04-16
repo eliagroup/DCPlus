@@ -332,7 +332,7 @@ def compute_bsdf_update(
     y_ft: Complex128[jnp.ndarray, " n_branches"],
     y_tf: Complex128[jnp.ndarray, " n_branches"],
     y_tt: Complex128[jnp.ndarray, " n_branches"],
-    y_shunt: Complex128[jnp.ndarray, " n_buses"],
+    y_shunt: Complex128[jnp.ndarray, " n_shunts"],
     angle_component_indices: Int[jnp.ndarray, " n_eq_jacobian"],
     magnitude_component_indices: Int[jnp.ndarray, " n_eq_jacobian"],
 ) -> Float[jnp.ndarray, " n_eq n_eq"]:
@@ -380,7 +380,7 @@ def compute_bsdf_update(
         "To-From" admittance for all branches.
     y_tt : Complex128[jnp.ndarray, " n_branches"]
         "To-To" admittance for all branches.
-    y_shunt : Complex128[jnp.ndarray, " n_buses"]
+    y_shunt : Complex128[jnp.ndarray, " n_shunts"]
         Shunt admittance for all buses.
     angle_component_indices : Int[jnp.ndarray, " n_eq_jacobian"]
         Mapping from bus indices to angle component indices in the Jacobian.

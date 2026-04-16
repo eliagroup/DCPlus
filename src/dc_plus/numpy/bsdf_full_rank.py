@@ -606,7 +606,7 @@ def compute_bsdf_update(
     y_ft: Complex128[np.ndarray, " n_branches"],
     y_tf: Complex128[np.ndarray, " n_branches"],
     y_tt: Complex128[np.ndarray, " n_branches"],
-    y_shunt: Complex128[np.ndarray, " n_buses"],
+    y_shunt: Complex128[np.ndarray, " n_shunts"],
     angle_component_indices: Int[np.ndarray, " n_eq_jacobian"],
     magnitude_component_indices: Int[np.ndarray, " n_eq_jacobian"],
 ) -> Float[np.ndarray, " n_eq n_eq"]:
