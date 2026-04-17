@@ -140,6 +140,7 @@ def _create_network_data(
         bus_active_power=bus_active_power,
         bus_reactive_power=bus_reactive_power,
         bus_type=buses["bus_type"].values.astype(int),
+        bus_is_angle_reference=buses["is_angle_reference"].values.astype(bool),
         injection_to_bus=injections["bus_index"].values.astype(int),
         injection_active_power=injections["p"].values,
         injection_reactive_power=injections["q"].values,

@@ -39,6 +39,8 @@ from dc_plus.importing.powsybl.powsybl_import import (
     _get_trafo_parameter,
 )
 
+from dc_plus.interfaces.network_information import BusType
+
 
 def test_get_tie_line_parameter():
     net = pypowsybl.network.create_eurostag_tutorial_example1_with_tie_lines_and_areas()
@@ -193,12 +195,13 @@ def test_get_buses():
     bus_powsybl = net.get_buses(attributes=[])
     dangling_count = len(_get_dangling_bus_ids(net))
     assert len(bus_powsybl) + dangling_count == len(buses)
-    assert 0 in list(buses["bus_type"].values)  # slack bus
-    assert 1 in list(buses["bus_type"].values)  # PV bus
-    assert 2 in list(buses["bus_type"].values)  # PQ bus
-    assert np.sum(buses["bus_type"] == 0) == 1  # only one slack bus
-    assert np.sum(buses["bus_type"] == 1) == 2  # there are two PV buses
-    assert np.sum(buses["bus_type"] == 2) >= 1  # at least one PQ bus
+    assert BusType.SLACK in list(buses["bus_type"].values)  # slack bus
+    assert BusType.PV in list(buses["bus_type"].values)  # PV bus
+    assert BusType.PQ in list(buses["bus_type"].values)  # PQ bus
+    assert np.sum(buses["bus_type"] == BusType.SLACK) == 1  # only one slack bus
+    assert np.sum(buses["is_angle_reference"]) == 1  # only one reference bus
+    assert np.sum(buses["bus_type"] == BusType.PV) == 2  # there are two PV buses
+    assert np.sum(buses["bus_type"] == BusType.PQ) >= 1  # at least one PQ bus
 
 
 def test_no_synchronous_components_returns_connected_ids():

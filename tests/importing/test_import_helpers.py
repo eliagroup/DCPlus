@@ -23,6 +23,7 @@ def test_remove_isolated_buses_injections():
             "voltage_magnitude": [1.0, 0.98, 1.02],
             "voltage_angle": [0.0, -0.05, 0.03],
             "bus_type": [0, 1, 2],
+            "is_angle_reference": [True, False, False],
             "grid_island_id": [0, 0, 1],
         }
     )
@@ -73,6 +74,7 @@ def test_remove_isolated_branches():
             "voltage_magnitude": [1.0, 1.0, 1.0],
             "voltage_angle": [0.0, 0.0, 0.0],
             "bus_type": [0, 1, 2],
+            "is_angle_reference": [True, False, False],
             "grid_island_id": [0, 0, 1],
         }
     )
@@ -125,6 +127,7 @@ def test_remove_isolated_buses():
             "voltage_magnitude": [1.0, 0.97, 1.01, 0.95],
             "voltage_angle": [0.0, -0.03, 0.02, -0.05],
             "bus_type": [0, 1, 2, 2],
+            "is_angle_reference": [True, False, False, False],
             "grid_island_id": [0, 1, 0, 2],
         }
     )

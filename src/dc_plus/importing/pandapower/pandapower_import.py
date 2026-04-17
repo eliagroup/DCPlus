@@ -272,11 +272,10 @@ def _get_buses_pandapower(net: pandapowerNet, slack_id: NotImplementedError) -> 
             continue
 
         res_bus = net.res_bus.loc[idx]
+        is_angle_reference = idx == slack_id
 
         # Determine bus type
-        if idx == slack_id:
-            bus_type = BusType.SLACK
-        elif idx in net.gen["bus"].values or idx in net.sgen["bus"].values:
+        if idx in net.gen["bus"].values or idx in net.sgen["bus"].values:
             # Check if voltage control is enabled
             is_voltage_controlled = False
             if idx in net.gen["bus"].values:
@@ -285,8 +284,13 @@ def _get_buses_pandapower(net: pandapowerNet, slack_id: NotImplementedError) -> 
             if not is_voltage_controlled and idx in net.sgen["bus"].values:
                 sgen_at_bus = net.sgen[net.sgen["bus"] == idx]
                 is_voltage_controlled = sgen_at_bus.get("controllable", pd.Series([False])).any()
+        else:
+            is_voltage_controlled = is_angle_reference
 
-            bus_type = BusType.PV if is_voltage_controlled else BusType.PQ
+        if is_angle_reference and is_voltage_controlled:
+            bus_type = BusType.SLACK
+        elif is_voltage_controlled:
+            bus_type = BusType.PV
         else:
             bus_type = BusType.PQ
 
@@ -302,6 +306,7 @@ def _get_buses_pandapower(net: pandapowerNet, slack_id: NotImplementedError) -> 
                 "voltage_magnitude": res_bus["vm_pu"] if pd.notna(res_bus["vm_pu"]) else np.nan,
                 "voltage_angle": (np.deg2rad(res_bus["va_degree"]) if pd.notna(res_bus["va_degree"]) else np.nan),
                 "bus_type": int(bus_type),
+                "is_angle_reference": is_angle_reference,
                 "grid_island_id": grid_island_id,
             }
         )

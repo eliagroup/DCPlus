@@ -10,3 +10,7 @@
 This implementation is intended for reference and testing purposes only.
 It is currently not optimized for performance, but for readability.
 """
+
+from .injection_outage import injection_outage_dx
+
+__all__ = ["injection_outage_dx"]
