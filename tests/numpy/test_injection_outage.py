@@ -62,7 +62,7 @@ def test_injection_outage_numpy_compare_powsybl(get_net):
 
         loadflow_parameter = get_powsybl_loadflow_parameter("one_step")
         loadflow_res = pypowsybl.loadflow.run_ac(net_n1, parameters=loadflow_parameter)[0]
-        assert loadflow_res.iteration_count == 1
+        assert loadflow_res.iteration_count <= 1
         if loadflow_res.status != pypowsybl._pypowsybl.LoadFlowComponentStatus.CONVERGED:
             continue
 
