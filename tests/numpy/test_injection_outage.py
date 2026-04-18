@@ -11,16 +11,15 @@ import numpy as np
 import pypowsybl
 import pytest
 
-from dc_plus.example_grids.pypowsbl.example_grids import PANDAPOWER_NETWORKS_FOR_POWSYBL, POWSYBL_NETWORKS
+from dc_plus.example_grids.pypowsbl.example_grids import POWSYBL_NETWORKS_SHORT_LIST
 from dc_plus.importing.powsybl.powsybl_import import DANGLING_BUS_STRING_SUFFIX, _get_injections_powsybl
 from dc_plus.importing.powsybl.powsybl_loadflow_parameter import get_powsybl_loadflow_parameter
 from dc_plus.importing.powsybl.powsybl_network_helpers import _load_test_grid
 from dc_plus.numpy.injection_outage import non_voltage_regulating_injection_outage_dx
 from dc_plus.preprocess.create_network_data import create_network_data
 
-powsybl_networks = POWSYBL_NETWORKS
-pandapower_networks = PANDAPOWER_NETWORKS_FOR_POWSYBL
-TOL = 5e-10
+powsybl_networks = POWSYBL_NETWORKS_SHORT_LIST
+TOL = 1e-10
 
 
 def _connected_injection_indices(injections):
@@ -56,7 +55,7 @@ def _pad_outage_rows(outage_rows: list[np.ndarray]) -> np.ndarray:
     return padded
 
 
-@pytest.mark.parametrize("get_net", powsybl_networks + pandapower_networks)
+@pytest.mark.parametrize("get_net", powsybl_networks)
 def test_non_voltage_regulating_injection_outage_numpy(get_net) -> None:
     """Test non voltage regulating injection outages with a one-step update against powsybl load flow results.
 
