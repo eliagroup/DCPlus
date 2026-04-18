@@ -29,4 +29,4 @@ The function can also be applied to voltage-regulating generator outages, but th
 
 ## HVDC
 
-- HVDC converter outages should be outaged in pairs. DC+ models the HVDC line as a pair of generator + load
+- HVDC converter outages should be outaged in pairs. DC+ models the HVDC line as a pair of generator + load injections, one at each terminal.

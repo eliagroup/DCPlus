@@ -61,7 +61,7 @@ def test_non_voltage_regulating_injection_outage_numpy(get_net) -> None:
     """Test non voltage regulating injection outages with a one-step update against powsybl load flow results.
 
     This does not test HVDC converter and dangling line outages.
-    It does test voltage regulatingGenerator outages, as the powsybl one step does also not switch from PV to PQ
+    It does test voltage regulating generator outages, as the powsybl one step does also not switch from PV to PQ
     node. This therefore does not account for the voltage drop of the disconnected generator.
 
     In DC+ dangling lines are modelled as an additional bus with a fixed injection p0 and q0
