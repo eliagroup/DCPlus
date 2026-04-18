@@ -209,7 +209,7 @@ def _compute_branch_delta_submatrix_from_admittance(
     dqt_dvt = -2.0 * v_t * b_tt + v_f * (g_tf * sin_tf - b_tf * cos_tf)
     dqt_dvf = v_t * (g_tf * sin_tf - b_tf * cos_tf)
 
-    dtype = np.result_type(v_mag_from, v_mag_to, theta_from, theta_to, y_ff)
+    dtype = np.result_type(v_mag_from, v_mag_to, theta_from, theta_to, g_ff)
 
     delta = np.array(
         [

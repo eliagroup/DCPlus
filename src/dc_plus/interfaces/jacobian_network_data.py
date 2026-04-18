@@ -51,7 +51,7 @@ def _get_jacobian_data_from_network_data(dynamic_network_data: DynamicNetworkInf
         jacobian_index_in_use=jacobian_index_in_use,
         pointer_to_original_bus=np.arange(dynamic_network_data.n_buses, dtype=np.int32),
         jacobian=jacobian,
-        inverse_jacobian=sparse_inv(jacobian).toarray(),
+        inverse_jacobian=sparse_inv(jacobian.tocsc()).toarray(),
         is_angle_component=is_angle_component,
         is_magnitude_component=is_magnitude_component,
         pvpq_indices=pvpq_indices,

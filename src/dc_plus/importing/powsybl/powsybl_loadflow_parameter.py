@@ -10,7 +10,7 @@
 import logging
 from typing import Literal
 
-from pypowsybl.loadflow import ConnectedComponentMode, VoltageInitMode
+from pypowsybl.loadflow import ComponentMode, VoltageInitMode
 from pypowsybl.loadflow import Parameters as LoadFlowParameters
 
 logger = logging.getLogger(__name__)
@@ -59,7 +59,7 @@ def get_powsybl_loadflow_parameter(
         # balance_type=BalanceType.PROPORTIONAL_TO_GENERATION_REMAINING_MARGIN,  # BalanceType
         dc_use_transformer_ratio=True,
         countries_to_balance=None,  # Sequence[str]
-        connected_component_mode=ConnectedComponentMode.MAIN,  # ConnectedComponentMode
+        component_mode=ComponentMode.MAIN_CONNECTED,
         dc_power_factor=None,
         provider_parameters=provider_param,  # Dict[str, str]
     )

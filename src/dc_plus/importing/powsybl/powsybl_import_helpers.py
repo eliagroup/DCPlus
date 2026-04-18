@@ -9,7 +9,7 @@
 
 import pypowsybl
 import pypowsybl.loadflow
-from pypowsybl.loadflow import ConnectedComponentMode, VoltageInitMode
+from pypowsybl.loadflow import ComponentMode, VoltageInitMode
 from pypowsybl.loadflow import Parameters as LoadFlowParameters
 from pypowsybl.network import Network
 
@@ -56,7 +56,7 @@ def select_a_generator_as_slack_and_run_loadflow(network: Network) -> None:
         read_slack_bus=True,
         distributed_slack=True,
         use_reactive_limits=True,
-        connected_component_mode=ConnectedComponentMode.MAIN,  # ConnectedComponentMode
+        component_mode=ComponentMode.MAIN_CONNECTED,
     )
 
     loadflow_res = pypowsybl.loadflow.run_ac(network, parameters=powsybl_loadflow_parameter)[0]
