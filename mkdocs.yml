@@ -15,6 +15,10 @@ strict: true
 nav:
   - Getting started:
     - Introduction: index.md
+    - Introduction to DC load flow: dc_plus/intro.md
+  - Code reference:
+    - DC Plus Numpy API: dc_plus/numpy_api_reference.md
+    - DC Plus Jax API: dc_plus/jax_api_reference.md
 
 theme:
   name: material

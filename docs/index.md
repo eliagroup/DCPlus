@@ -2,7 +2,12 @@
 
 This repo is an implementation of project DC Plus at Elia Group.
 
-DCPlus is based on the paper "[Voltage-sensitive distribution factors for contingency analysis and topology optimization](https://arxiv.org/pdf/2509.19976)". DCPlus is a linearization around the N-0 AC loadflow and approximates the changes in the network by computing an equivalent to one AC Newton-Raphson iteration step. DCPlus is expected to solve about one million loadflows per second on a 2.000 bus network.
+DCPlus is based on the paper "[Voltage-sensitive distribution factors for contingency analysis and topology optimization](https://arxiv.org/pdf/2509.19976)". DCPlus is a linearization around the N-0 AC loadflow and approximates the changes in the network by computing an equivalent to one AC Newton-Raphson iteration step. DCPlus is expected to solve about one million loadflows per second on a 2.000 bus network using a A100 GPU.
+
+
+[!WARNING]
+This project is under active development and APIs may change without a breaking change warning.
+
 
 Please check out our [full documentation](https://eliagroup.github.io/DCPlus).
 
