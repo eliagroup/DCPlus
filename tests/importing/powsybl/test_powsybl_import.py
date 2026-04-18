@@ -190,7 +190,7 @@ def test_get_buses():
     net = create_complex_grid_battery_hvdc_svc_3w_trafo()
     injections = _get_injections_powsybl(net)
     slack_id = net.get_extensions("slackTerminal")["bus_id"].values[0]
-    buses = _get_buses_powsybl(net=net, slack_id=slack_id, injections=injections)
+    buses = _get_buses_powsybl(net=net, slack_id=slack_id, injections=injections, reference_id=slack_id)
     BusParamSchema.validate(buses)
     bus_powsybl = net.get_buses(attributes=[])
     dangling_count = len(_get_dangling_bus_ids(net))

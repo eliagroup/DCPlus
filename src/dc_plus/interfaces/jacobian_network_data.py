@@ -86,7 +86,7 @@ def get_jacobian_from_network_data(
     pqpv_indices = dynamic_network_data.pvpq_buses_indices_pvpq_order
 
     voltage = voltage_magnitudes * np.exp(1.0j * voltage_angles)
-    if np.any(voltage == 0.0):
+    if np.any(np.isclose(voltage, 0.0, atol=1e-10)):
         raise ValueError("Voltage magnitudes must be strictly positive to construct the Jacobian.")
 
     voltage_norm = voltage / abs(voltage)

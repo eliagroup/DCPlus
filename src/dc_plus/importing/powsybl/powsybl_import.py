@@ -928,7 +928,7 @@ def _get_dangling_buses(net: Network) -> BusParamSchema:
     return dangling_buses
 
 
-def _get_buses_powsybl(net: Network, slack_id: str, injections: InjectionParamSchema) -> BusParamSchema:
+def _get_buses_powsybl(net: Network, slack_id: str, injections: InjectionParamSchema, reference_id: str) -> BusParamSchema:
     """Get the bus parameters of the network.
 
     Gets the bus parameters from the network.
@@ -941,6 +941,8 @@ def _get_buses_powsybl(net: Network, slack_id: str, injections: InjectionParamSc
         The id of the slack bus.
     injections : InjectionParamSchema
         The injections of the network.
+    reference_id : str
+        The id of the reference bus for angle reference.
 
     Returns
     -------
@@ -953,7 +955,7 @@ def _get_buses_powsybl(net: Network, slack_id: str, injections: InjectionParamSc
     buses.reset_index(drop=False, inplace=True)
     buses.rename(columns={"id": "id_str"}, inplace=True)
     buses["bus_type"] = 2  # PQ bus is default
-    buses["is_angle_reference"] = buses["v_angle"] == 0.0
+    buses["is_angle_reference"] = buses["id_str"].eq(reference_id)
 
     buses.rename(columns={"v_mag": "voltage_magnitude", "v_angle": "voltage_angle"}, inplace=True)
 
