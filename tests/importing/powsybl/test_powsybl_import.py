@@ -5,10 +5,12 @@
 # you can obtain one at https://mozilla.org/MPL/2.0/.
 # Mozilla Public License, version 2.0
 
+import py
 import numpy as np
 import pandas as pd
 import pandas.testing as pdt
 import pypowsybl
+import pytest
 
 from dc_plus.example_grids.pypowsbl.example_grids import create_complex_grid_battery_hvdc_svc_3w_trafo
 from dc_plus.importing.import_helpers import _remove_isolated_buses_injections
@@ -18,6 +20,8 @@ from dc_plus.importing.import_schema import (
     InjectionParamSchema,
     LimitParamSchema,
     ShuntParamSchema,
+    TapChangerParamSchema,
+    TapPositionParamSchema,
 )
 from dc_plus.importing.powsybl.powsybl_import import (
     _get_battery,
@@ -37,7 +41,11 @@ from dc_plus.importing.powsybl.powsybl_import import (
     _get_static_var_compensators,
     _get_tie_line_parameter,
     _get_trafo_parameter,
+    _get_tap_steps_parameter_powsybl,
+    _get_tap_changer_parameter_powsybl,
 )
+from dc_plus.importing.powsybl.powsybl_import_helpers import select_a_generator_as_slack_and_run_loadflow
+from dc_plus.preprocess.create_network_data import create_network_data
 
 
 def test_get_tie_line_parameter():
@@ -84,6 +92,58 @@ def test_get_trafo_parameter():
     trafos = _get_trafo_parameter(net)
     BranchParamSchema.validate(trafos)
     assert len(trafos) == 0
+
+
+def test_get_tap_steps_parameter_powsybl(micro_grid_be_network_with_replaced_transformers: pypowsybl.network.Network):
+    net = micro_grid_be_network_with_replaced_transformers
+    ratio_tap_changer_steps = _get_tap_steps_parameter_powsybl(net.get_ratio_tap_changer_steps())
+    assert len(TapPositionParamSchema.validate(ratio_tap_changer_steps)) != 0
+    phase_tap_changer_steps = _get_tap_steps_parameter_powsybl(net.get_phase_tap_changer_steps())
+    assert len(TapPositionParamSchema.validate(phase_tap_changer_steps)) != 0
+
+
+def test_get_tap_changer_parameter_powsybl(micro_grid_be_network_with_replaced_transformers: pypowsybl.network.Network):
+    net = micro_grid_be_network_with_replaced_transformers
+    tap_changers = net.get_phase_tap_changers()
+    transformers = net.get_2_windings_transformers(attributes=["r", "x", "g", "b"])
+    phase_changer_params = _get_tap_changer_parameter_powsybl(tap_changers=tap_changers, transformers=transformers)
+    assert len(TapChangerParamSchema.validate(phase_changer_params)) != 0
+    ratio_changers = net.get_ratio_tap_changers()
+    ratio_changers_params = _get_tap_changer_parameter_powsybl(tap_changers=ratio_changers, transformers=transformers)
+    assert len(TapChangerParamSchema.validate(ratio_changers_params)) != 0
+
+
+def test_create_network_data_populates_transformer_tap_information(
+    micro_grid_be_network_with_replaced_transformers: pypowsybl.network.Network,
+):
+    net = micro_grid_be_network_with_replaced_transformers
+    static_info, dynamic_info, string_info = create_network_data(net)
+
+    branch_index_by_id = {str(branch_id): idx for idx, branch_id in enumerate(string_info.branch_ids)}
+    ratio_taps = net.get_ratio_tap_changers()["tap"].to_dict()
+    phase_taps = net.get_phase_tap_changers()["tap"].to_dict()
+
+    expected_ratio_indices = {branch_index_by_id[str(branch_id)] for branch_id in ratio_taps}
+    expected_phase_indices = {branch_index_by_id[str(branch_id)] for branch_id in phase_taps}
+
+    assert set(np.flatnonzero(static_info.has_ratio_changing_transformer)) == expected_ratio_indices
+    assert set(np.flatnonzero(static_info.has_phase_shifting_transformer)) == expected_phase_indices
+    assert set(static_info.ratio_shift_info) == expected_ratio_indices
+    assert set(static_info.phase_shift_info) == expected_phase_indices
+
+    for branch_idx, branch_id in enumerate(string_info.branch_ids):
+        expected_ratio_tap = int(ratio_taps.get(str(branch_id), 0))
+        expected_phase_tap = int(phase_taps.get(str(branch_id), 0))
+        assert dynamic_info.branch_ratio_tap_positions[branch_idx] == expected_ratio_tap
+        assert dynamic_info.branch_phase_tap_positions[branch_idx] == expected_phase_tap
+
+    for tap_info in static_info.ratio_shift_info.values():
+        assert tap_info.n_max_tap_positions > 0
+        assert tap_info.tap_offset_shift_ratio_rho.shape == (tap_info.n_max_tap_positions,)
+
+    for tap_info in static_info.phase_shift_info.values():
+        assert tap_info.n_max_tap_positions > 0
+        assert tap_info.tap_offset_shift_angle.shape == (tap_info.n_max_tap_positions,)
 
 
 def test_get_branches_parameter():

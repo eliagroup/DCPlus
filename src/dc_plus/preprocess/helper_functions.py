@@ -16,6 +16,23 @@ from dc_plus.interfaces.network_information import DynamicNetworkInformation
 
 
 def _flatten_time_dimension(values: np.ndarray) -> np.ndarray:
+    """Collapse the optional time dimension used in dynamic network arrays.
+
+    Parameters
+    ----------
+    values : np.ndarray
+        Array that is either already one-dimensional or has a singleton time dimension.
+
+    Returns
+    -------
+    np.ndarray
+        One-dimensional view of the input values.
+
+    Raises
+    ------
+    ValueError
+        If the input has more than two dimensions.
+    """
     arr = np.asarray(values)
     if arr.ndim == 1:
         return arr

@@ -218,7 +218,10 @@ def _get_transformer_parameters_pandapower(net: pandapowerNet, split_trafo_charg
     return BranchParamSchema.validate(df)
 
 
-def _get_branches_parameter_pandapower(net: pandapowerNet, split_trafo_charging: bool = True) -> pd.DataFrame:
+def _get_branches_parameter_pandapower(
+    net: pandapowerNet,
+    split_trafo_charging: bool = True,
+) -> BranchParamSchema:
     """Extract branch parameters from pandapower network.
 
     Parameters
@@ -246,7 +249,7 @@ def _get_branches_parameter_pandapower(net: pandapowerNet, split_trafo_charging:
     return BranchParamSchema.validate(branches)
 
 
-def _get_buses_pandapower(net: pandapowerNet, slack_id: NotImplementedError) -> pd.DataFrame:
+def _get_buses_pandapower(net: pandapowerNet, slack_id: int) -> BusParamSchema:
     """Extract bus parameters from pandapower network.
 
     Parameters
@@ -549,7 +552,7 @@ def _process_storage_pandapower(net: pandapowerNet) -> list[dict]:
     return storage_injections
 
 
-def _get_injections_pandapower(net: pandapowerNet) -> pd.DataFrame:
+def _get_injections_pandapower(net: pandapowerNet) -> InjectionParamSchema:
     """Extract injection parameters from pandapower network.
 
     Parameters
@@ -582,7 +585,7 @@ def _get_injections_pandapower(net: pandapowerNet) -> pd.DataFrame:
     return InjectionParamSchema.validate(df)
 
 
-def _get_shunts_pandapower(net: pandapowerNet) -> pd.DataFrame:
+def _get_shunts_pandapower(net: pandapowerNet) -> ShuntParamSchema:
     """Extract shunt parameters from pandapower network.
 
     Parameters
@@ -648,7 +651,7 @@ def _get_shunts_pandapower(net: pandapowerNet) -> pd.DataFrame:
     return ShuntParamSchema.validate(df)
 
 
-def _get_limits_parameter_pandapower(net: pandapowerNet) -> pd.DataFrame:
+def _get_limits_parameter_pandapower(net: pandapowerNet) -> LimitParamSchema:
     """Extract limit parameters from pandapower network.
 
     Parameters

@@ -10,15 +10,49 @@
 Helpers independent of the specific source (e.g., Powsybl, Pandapower).
 """
 
-import numpy as np
+from typing import TypeVar
 
-from dc_plus.importing.import_schema import BranchParamSchema, BusParamSchema, InjectionParamSchema, ShuntParamSchema
+import numpy as np
+import pandas as pd
+import pandera.pandas as pa
+import pandera.typing as pat
+from jaxtyping import Complex128
+
+from dc_plus.importing.import_schema import (
+    BranchParamSchema,
+    BusParamSchema,
+    InjectionParamSchema,
+    LimitParamSchema,
+    ShuntParamSchema,
+    TapChangerParamSchema,
+    TapPositionParamSchema,
+)
+from dc_plus.interfaces.network_information import ShuntSectionInformation
+
+DataFrameModelT = TypeVar("DataFrameModelT", bound=pa.DataFrameModel)
+
+
+def _empty_schema_dataframe(schema_model: type[DataFrameModelT]) -> pat.DataFrame[DataFrameModelT]:
+    """Create an empty validated dataframe for a Pandera schema model.
+
+    Parameters
+    ----------
+    schema_model : type[pa.DataFrameModel]
+        The Pandera dataframe model that defines the expected columns and dtypes.
+
+    Returns
+    -------
+    pd.DataFrame
+        An empty dataframe validated against the provided schema model.
+    """
+    return schema_model.validate(pd.DataFrame().reindex(columns=list(schema_model.to_schema().columns.keys())))
 
 
 def _remove_isolated_buses_injections(
-    buses: BusParamSchema, injections: InjectionParamSchema
-) -> tuple[BusParamSchema, InjectionParamSchema]:
-    """Remove isolated buses and corresponding injections.
+    buses: BusParamSchema,
+    injections: InjectionParamSchema | ShuntParamSchema,
+) -> InjectionParamSchema | ShuntParamSchema:
+    """Remove isolated buses and corresponding bus-connected elements.
 
     Keeps only main grid buses.
 
@@ -26,20 +60,120 @@ def _remove_isolated_buses_injections(
     ----------
     buses : BusParamSchema
         The bus parameters of the network.
-    injections : InjectionParamSchema
-        The injection parameters of the network.
+    injections : InjectionParamSchema | ShuntParamSchema
+        The bus-connected elements of the network.
 
     Returns
     -------
-    tuple[BusParamSchema, InjectionParamSchema]
-        The bus and injection parameters of the network without isolated buses.
+    InjectionParamSchema | ShuntParamSchema
+        The filtered bus-connected elements without isolated buses.
     """
     main_grid = buses[buses["grid_island_id"] == 0]
     injections = injections[injections["bus_index"].isin(main_grid["id_int"])]
     return injections
 
 
-def _remove_isolated_branches(buses: BusParamSchema, branches: BranchParamSchema) -> BranchParamSchema:
+def _filter_main_grid_network_data(
+    buses: BusParamSchema,
+    branches: BranchParamSchema,
+    injections: InjectionParamSchema,
+    shunts: ShuntParamSchema,
+) -> tuple[
+    BusParamSchema,
+    BranchParamSchema,
+    InjectionParamSchema,
+    ShuntParamSchema,
+]:
+    """Keep only the main grid across all imported parameter tables."""
+    buses = _remove_isolated_buses(buses)
+    injections = _remove_isolated_buses_injections(buses, injections)
+    shunts = _remove_isolated_buses_injections(buses, shunts)
+    branches = _remove_isolated_branches(buses, branches)
+    return buses, branches, injections, shunts
+
+
+def _filter_branch_tap_data(
+    branches: BranchParamSchema,
+    tap_changers: TapChangerParamSchema,
+    tap_positions: TapPositionParamSchema,
+) -> tuple[TapChangerParamSchema, TapPositionParamSchema]:
+    """Keep only transformer tap data belonging to the provided branch table."""
+    branch_ids = branches["id_str"].astype(str)
+    tap_changers = tap_changers[tap_changers["id_str"].astype(str).isin(branch_ids)]
+    tap_positions = tap_positions[tap_positions["id_str"].astype(str).isin(branch_ids)]
+    return tap_changers, tap_positions
+
+
+def _get_unique_limit_names(limits: LimitParamSchema) -> np.ndarray:
+    """Get unique limit names while preserving importer order."""
+    if limits.empty:
+        return np.array([], dtype=str)
+    return limits["name"].astype(str).drop_duplicates().to_numpy(dtype=str)
+
+
+def _get_branch_current_limits(
+    branches: BranchParamSchema,
+    limits: LimitParamSchema,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Map imported branch limits to a branch-aligned 2D array."""
+    limit_names = _get_unique_limit_names(limits)
+    branch_current_limits = np.full((len(limit_names), len(branches)), np.nan, dtype=float)
+    if limits.empty or branches.empty:
+        return limit_names, branch_current_limits
+
+    branch_index_by_id = {str(branch_id): idx for idx, branch_id in enumerate(branches["id_str"].astype(str).values)}
+    limit_index_by_name = {limit_name: idx for idx, limit_name in enumerate(limit_names)}
+
+    for limit in limits.to_dict("records"):
+        branch_idx = branch_index_by_id.get(str(limit["element_id_str"]))
+        limit_idx = limit_index_by_name.get(str(limit["name"]))
+        if branch_idx is None or limit_idx is None:
+            continue
+        branch_current_limits[limit_idx, branch_idx] = float(limit["value"])
+
+    return limit_names, branch_current_limits
+
+
+def _get_shunt_section_information(shunts: ShuntParamSchema) -> ShuntSectionInformation:
+    """Build branch-independent shunt section metadata from imported shunt tables."""
+    n_shunts = len(shunts)
+    if n_shunts == 0:
+        return ShuntSectionInformation.empty(n_shunts=0)
+
+    max_section_count = shunts["max_section_count"].fillna(0).astype(int).to_numpy()
+    section_count = shunts["section_count"].fillna(0).astype(int).to_numpy()
+    n_max_shunt_sections = int(max_section_count.max()) if max_section_count.size else 0
+    shunt_conductance_at_section = np.zeros((n_shunts, n_max_shunt_sections), dtype=float)
+    shunt_susceptance_at_section = np.zeros((n_shunts, n_max_shunt_sections), dtype=float)
+
+    for shunt_idx in range(n_shunts):
+        n_sections = int(max_section_count[shunt_idx])
+        if n_sections <= 0:
+            continue
+
+        scaling_sections = int(section_count[shunt_idx]) if int(section_count[shunt_idx]) > 0 else n_sections
+        if scaling_sections <= 0:
+            continue
+
+        conductance_step = float(shunts.iloc[shunt_idx]["g"]) / scaling_sections
+        susceptance_step = float(shunts.iloc[shunt_idx]["b"]) / scaling_sections
+        active_sections = np.arange(1, n_sections + 1, dtype=float)
+        shunt_conductance_at_section[shunt_idx, :n_sections] = conductance_step * active_sections
+        shunt_susceptance_at_section[shunt_idx, :n_sections] = susceptance_step * active_sections
+
+    return ShuntSectionInformation(
+        n_max_shunt_sections=n_max_shunt_sections,
+        min_shunt_section=np.zeros(n_shunts, dtype=int),
+        max_shunt_section=max_section_count,
+        shunt_conductance_at_section=shunt_conductance_at_section,
+        shunt_susceptance_at_section=shunt_susceptance_at_section,
+    )
+
+
+def _remove_isolated_branches(
+    buses: BusParamSchema,
+    branches: BranchParamSchema,
+) -> BranchParamSchema:
     """Remove isolated branches.
 
     Keeps only branches that are connected to main grid buses.
@@ -82,9 +216,39 @@ def _remove_isolated_buses(buses: BusParamSchema) -> BusParamSchema:
     return main_grid
 
 
+def _get_branch_admittance_terms(
+    r: np.ndarray,
+    x: np.ndarray,
+    g1: np.ndarray,
+    b1: np.ndarray,
+    g2: np.ndarray,
+    b2: np.ndarray,
+    rho: np.ndarray,
+    alpha: np.ndarray,
+) -> tuple[
+    Complex128[np.ndarray, " n_branches"],
+    Complex128[np.ndarray, " n_branches"],
+    Complex128[np.ndarray, " n_branches"],
+    Complex128[np.ndarray, " n_branches"],
+]:
+    """Build reusable branch admittance primitives from electrical parameters."""
+    y_series = 1 / (r + 1j * x)
+    y_charging_from = g1 + 1j * b1
+    y_charging_to = g2 + 1j * b2
+    rho_alpha = rho * np.exp(1j * alpha)
+    return y_series, y_charging_from, y_charging_to, rho_alpha
+
+
 def _get_admittance_branches(
     branches: BranchParamSchema,
-) -> tuple[np.complex128, np.complex128, np.complex128, np.complex128, np.complex128]:
+) -> tuple[
+    Complex128[np.ndarray, " n_branches"],
+    Complex128[np.ndarray, " n_branches"],
+    Complex128[np.ndarray, " n_branches"],
+    Complex128[np.ndarray, " n_branches"],
+    Complex128[np.ndarray, " n_branches"],
+    Complex128[np.ndarray, " n_branches"],
+]:
     """Get the admittance matrix of the branches.
 
     Returns
@@ -94,10 +258,16 @@ def _get_admittance_branches(
         [branch_effective_admittance_from_to, branch_effective_admittance_from_from,
          branch_effective_admittance_to_to, branch_effective_admittance_to_from, branch_effective_admittance_series]
     """
-    y_series = 1 / (branches["r"] + 1j * branches["x"])
-    y_charging_from = branches["g1"] + 1j * branches["b1"]
-    y_charging_to = branches["g2"] + 1j * branches["b2"]
-    rho_alpha = branches["rho"] * np.exp(1j * branches["alpha"])
+    y_series, y_charging_from, y_charging_to, rho_alpha = _get_branch_admittance_terms(
+        r=branches["r"].to_numpy(dtype=float),
+        x=branches["x"].to_numpy(dtype=float),
+        g1=branches["g1"].to_numpy(dtype=float),
+        b1=branches["b1"].to_numpy(dtype=float),
+        g2=branches["g2"].to_numpy(dtype=float),
+        b2=branches["b2"].to_numpy(dtype=float),
+        rho=branches["rho"].to_numpy(dtype=float),
+        alpha=branches["alpha"].to_numpy(dtype=float),
+    )
     y_charging_symmetric = (y_charging_from + y_charging_to) / 2
 
     y_ff = (y_series + y_charging_from) / (rho_alpha * np.conj(rho_alpha))
@@ -123,7 +293,7 @@ def _get_bus_admittance_shunts(
     Float[np.ndarray, "n_buses"]
         The node admittance of the shunts.
     """
-    y_shunt = shunts["g"] + 1j * shunts["b"]
+    y_shunt = shunts["g"].to_numpy(dtype=float) + 1j * shunts["b"].to_numpy(dtype=float)
     return y_shunt
 
 
@@ -146,7 +316,11 @@ def _get_bus_active_power_injections(
         The nodal active power injections.
     """
     p_injections = np.zeros(n_buses)
-    np.add.at(p_injections, injections.bus_index.values, injections.p.values)
+    np.add.at(
+        p_injections,
+        injections["bus_index"].to_numpy(dtype=int),
+        injections["p"].to_numpy(dtype=float),
+    )
     return p_injections
 
 
@@ -169,5 +343,9 @@ def _get_bus_reactive_power_injections(
         The nodal reactive power injections.
     """
     q_injections = np.zeros(n_buses)
-    np.add.at(q_injections, injections.bus_index.values, injections.q.values)
+    np.add.at(
+        q_injections,
+        injections["bus_index"].to_numpy(dtype=int),
+        injections["q"].to_numpy(dtype=float),
+    )
     return q_injections
