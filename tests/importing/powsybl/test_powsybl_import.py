@@ -264,6 +264,22 @@ def test_get_buses():
     assert np.sum(buses["bus_type"] == BusType.PQ) >= 1  # at least one PQ bus
 
 
+def test_get_buses_invalid_reference_falls_back_to_slack():
+    net = create_complex_grid_battery_hvdc_svc_3w_trafo()
+    injections = _get_injections_powsybl(net)
+    slack_id = net.get_extensions("slackTerminal")["bus_id"].values[0]
+
+    buses = _get_buses_powsybl(
+        net=net,
+        slack_id=slack_id,
+        injections=injections,
+        reference_id="not-a-bus-id",
+    )
+
+    assert np.sum(buses["is_angle_reference"]) == 1
+    assert buses.loc[buses["is_angle_reference"], "id_str"].tolist() == [slack_id]
+
+
 def test_no_synchronous_components_returns_connected_ids():
     df = pd.DataFrame(
         {

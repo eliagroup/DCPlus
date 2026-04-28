@@ -104,6 +104,7 @@ def _add_bus_component_indices(
 def _collect_targeted_indices(
     bus_to_split: int,
     new_bus_b_index: int,
+    branch_indices_with_delta: Int[np.ndarray, " n_branch_delta"],
     branches_connected_to_bus_b: Int[np.ndarray, " n_branches_B"],
     shunt_connected_to_bus_b: Int[np.ndarray, " n_shunts_B"],
     branch_from: Int[np.ndarray, " n_branches"],
@@ -111,6 +112,7 @@ def _collect_targeted_indices(
     shunt_to_bus: Int[np.ndarray, " n_shunts"],
     angle_idx_map: Int[np.ndarray, " n_eq_jacobian"],
     magnitude_idx_map: Int[np.ndarray, " n_eq_jacobian"],
+    include_new_bus: bool,
 ) -> Int[np.ndarray, " k"]:
     """Collect all Jacobian indices affected by branch and shunt reassignment.
 
@@ -120,6 +122,9 @@ def _collect_targeted_indices(
         Index of the original bus being split.
     new_bus_b_index : int
         Index of the new bus created by the split.
+    branch_indices_with_delta : Int[np.ndarray, " n_branch_delta"]
+        Branch indices whose Jacobian contribution changes due to reassignment and/or
+        transformer tap updates.
     branches_connected_to_bus_b : Int[np.ndarray, " n_branches_B"]
         Indices of branches reassigned to the new bus.
     shunt_connected_to_bus_b : Int[np.ndarray, " n_shunts_B"]
@@ -134,6 +139,9 @@ def _collect_targeted_indices(
         Mapping from bus indices to Jacobian angle-equation indices.
     magnitude_idx_map : Int[np.ndarray, " n_eq_jacobian"]
         Mapping from bus indices to Jacobian magnitude-equation indices.
+    include_new_bus : bool
+        Whether the newly created bus should contribute its angle and magnitude
+        component indices to the targeted update block.
 
     Returns
     -------
@@ -146,17 +154,20 @@ def _collect_targeted_indices(
         Raised when a reassigned branch or shunt index is outside the available arrays.
     """
     targeted_indices: set[int] = set()
+    reassigned_branch_indices = {int(branch_idx) for branch_idx in np.asarray(branches_connected_to_bus_b, dtype=int)}
     _add_bus_component_indices(targeted_indices, bus_to_split, angle_idx_map, magnitude_idx_map)
-    _add_bus_component_indices(targeted_indices, new_bus_b_index, angle_idx_map, magnitude_idx_map)
+    if include_new_bus:
+        _add_bus_component_indices(targeted_indices, new_bus_b_index, angle_idx_map, magnitude_idx_map)
 
-    for branch_idx in branches_connected_to_bus_b:
+    for branch_idx in np.asarray(branch_indices_with_delta, dtype=int):
         if branch_idx < 0 or branch_idx >= branch_from.size:
             raise IndexError("Branch index assigned to bus B is out of bounds")
 
         from_bus_old = int(branch_from[branch_idx])
         to_bus_old = int(branch_to[branch_idx])
-        from_bus_new = new_bus_b_index if from_bus_old == bus_to_split else from_bus_old
-        to_bus_new = new_bus_b_index if to_bus_old == bus_to_split else to_bus_old
+        is_reassigned = branch_idx in reassigned_branch_indices
+        from_bus_new = new_bus_b_index if is_reassigned and from_bus_old == bus_to_split else from_bus_old
+        to_bus_new = new_bus_b_index if is_reassigned and to_bus_old == bus_to_split else to_bus_old
 
         _add_bus_component_indices(targeted_indices, from_bus_old, angle_idx_map, magnitude_idx_map)
         _add_bus_component_indices(targeted_indices, to_bus_old, angle_idx_map, magnitude_idx_map)
@@ -265,16 +276,17 @@ def _accumulate_sub_delta(
 
     local_indices = component_indices[valid_positions]
     mapped_positions = [position_lookup[int(idx)] for idx in local_indices]
-    sub_delta = delta_matrix[np.ix_(valid_positions, valid_positions)]
+    sub_delta = np.real(delta_matrix[np.ix_(valid_positions, valid_positions)])
 
     for row_offset, pos_row in enumerate(mapped_positions):
         for col_offset, pos_col in enumerate(mapped_positions):
-            delta_block[pos_row, pos_col] += weight * float(sub_delta[row_offset, col_offset])
+            delta_block[pos_row, pos_col] += weight * sub_delta[row_offset, col_offset]
 
 
 def _accumulate_branch_reassignment_delta(
     delta_block: Float[np.ndarray, " k k"],
     position_lookup: dict[int, int],
+    branch_indices_with_delta: Int[np.ndarray, " n_branch_delta"],
     branches_connected_to_bus_b: Int[np.ndarray, " n_branches_B"],
     bus_to_split: int,
     new_bus_b_index: int,
@@ -282,6 +294,10 @@ def _accumulate_branch_reassignment_delta(
     branch_to: Int[np.ndarray, " n_branches"],
     v_mag_hat: Float[np.ndarray, " n_buses"],
     theta_hat: Float[np.ndarray, " n_buses"],
+    y_ff_base: Complex128[np.ndarray, " n_branches"],
+    y_ft_base: Complex128[np.ndarray, " n_branches"],
+    y_tf_base: Complex128[np.ndarray, " n_branches"],
+    y_tt_base: Complex128[np.ndarray, " n_branches"],
     y_ff: Complex128[np.ndarray, " n_branches"],
     y_ft: Complex128[np.ndarray, " n_branches"],
     y_tf: Complex128[np.ndarray, " n_branches"],
@@ -297,6 +313,8 @@ def _accumulate_branch_reassignment_delta(
         Global Jacobian update block being assembled.
     position_lookup : dict[int, int]
         Mapping from global Jacobian index to local row/column position.
+    branch_indices_with_delta : Int[np.ndarray, " n_branch_delta"]
+        Branch indices whose contribution changes between the base and updated state.
     branches_connected_to_bus_b : Int[np.ndarray, " n_branches_B"]
         Branch indices reassigned to the new bus.
     bus_to_split : int
@@ -311,6 +329,14 @@ def _accumulate_branch_reassignment_delta(
         Voltage magnitudes used for the local Jacobian contributions.
     theta_hat : Float[np.ndarray, " n_buses"]
         Voltage angles used for the local Jacobian contributions.
+    y_ff_base : Complex128[np.ndarray, " n_branches"]
+        Base-state branch self-admittance at the ``from`` side.
+    y_ft_base : Complex128[np.ndarray, " n_branches"]
+        Base-state branch mutual admittance from ``from`` to ``to``.
+    y_tf_base : Complex128[np.ndarray, " n_branches"]
+        Base-state branch mutual admittance from ``to`` to ``from``.
+    y_tt_base : Complex128[np.ndarray, " n_branches"]
+        Base-state branch self-admittance at the ``to`` side.
     y_ff : Complex128[np.ndarray, " n_branches"]
         Branch self-admittance at the ``from`` side.
     y_ft : Complex128[np.ndarray, " n_branches"]
@@ -324,7 +350,9 @@ def _accumulate_branch_reassignment_delta(
     magnitude_idx_map : Int[np.ndarray, " n_eq_jacobian"]
         Mapping from bus indices to magnitude-equation indices.
     """
-    for branch_idx in branches_connected_to_bus_b:
+    reassigned_branch_indices = {int(branch_idx) for branch_idx in np.asarray(branches_connected_to_bus_b, dtype=int)}
+
+    for branch_idx in np.asarray(branch_indices_with_delta, dtype=int):
         from_bus_old = int(branch_from[branch_idx])
         to_bus_old = int(branch_to[branch_idx])
 
@@ -333,10 +361,10 @@ def _accumulate_branch_reassignment_delta(
             v_mag_to=v_mag_hat[to_bus_old],
             theta_from=theta_hat[from_bus_old],
             theta_to=theta_hat[to_bus_old],
-            y_ff=y_ff[branch_idx],
-            y_ft=y_ft[branch_idx],
-            y_tf=y_tf[branch_idx],
-            y_tt=y_tt[branch_idx],
+            y_ff=y_ff_base[branch_idx],
+            y_ft=y_ft_base[branch_idx],
+            y_tf=y_tf_base[branch_idx],
+            y_tt=y_tt_base[branch_idx],
         )
         _accumulate_sub_delta(
             delta_block=delta_block,
@@ -351,8 +379,9 @@ def _accumulate_branch_reassignment_delta(
             weight=1.0,
         )
 
-        from_bus_new = new_bus_b_index if from_bus_old == bus_to_split else from_bus_old
-        to_bus_new = new_bus_b_index if to_bus_old == bus_to_split else to_bus_old
+        is_reassigned = branch_idx in reassigned_branch_indices
+        from_bus_new = new_bus_b_index if is_reassigned and from_bus_old == bus_to_split else from_bus_old
+        to_bus_new = new_bus_b_index if is_reassigned and to_bus_old == bus_to_split else to_bus_old
         delta_new = _compute_branch_delta_submatrix_from_admittance(
             v_mag_from=v_mag_hat[from_bus_new],
             v_mag_to=v_mag_hat[to_bus_new],
@@ -485,6 +514,7 @@ def _apply_new_bus_diagonal_adjustment(
 def _build_delta_block(
     idx_list: Int[np.ndarray, " k"],
     dtype: np.dtype,
+    branch_indices_with_delta: Int[np.ndarray, " n_branch_delta"],
     branches_connected_to_bus_b: Int[np.ndarray, " n_branches_B"],
     shunt_connected_to_bus_b: Int[np.ndarray, " n_shunts_B"],
     bus_to_split: int,
@@ -494,6 +524,10 @@ def _build_delta_block(
     shunt_to_bus: Int[np.ndarray, " n_shunts"],
     v_mag_hat: Float[np.ndarray, " n_buses"],
     theta_hat: Float[np.ndarray, " n_buses"],
+    y_ff_base: Complex128[np.ndarray, " n_branches"],
+    y_ft_base: Complex128[np.ndarray, " n_branches"],
+    y_tf_base: Complex128[np.ndarray, " n_branches"],
+    y_tt_base: Complex128[np.ndarray, " n_branches"],
     y_ff: Complex128[np.ndarray, " n_branches"],
     y_ft: Complex128[np.ndarray, " n_branches"],
     y_tf: Complex128[np.ndarray, " n_branches"],
@@ -501,6 +535,7 @@ def _build_delta_block(
     y_shunt: Complex128[np.ndarray, " n_shunts"],
     angle_idx_map: Int[np.ndarray, " n_eq_jacobian"],
     magnitude_idx_map: Int[np.ndarray, " n_eq_jacobian"],
+    apply_split_bus_adjustment: bool,
 ) -> Float[np.ndarray, " k k"]:
     """Build the local Jacobian update block used in the Woodbury correction.
 
@@ -510,6 +545,9 @@ def _build_delta_block(
         Sorted Jacobian indices present in the update block.
     dtype : np.dtype
         Data type used to allocate the update block.
+    branch_indices_with_delta : Int[np.ndarray, " n_branch_delta"]
+        Branch indices whose Jacobian contribution changes between the base and
+        updated state.
     branches_connected_to_bus_b : Int[np.ndarray, " n_branches_B"]
         Branch indices reassigned to the new bus.
     shunt_connected_to_bus_b : Int[np.ndarray, " n_shunts_B"]
@@ -528,6 +566,14 @@ def _build_delta_block(
         Voltage magnitudes of the base state.
     theta_hat : Float[np.ndarray, " n_buses"]
         Voltage angles of the base state.
+    y_ff_base : Complex128[np.ndarray, " n_branches"]
+        Base-state branch self-admittance at the ``from`` side.
+    y_ft_base : Complex128[np.ndarray, " n_branches"]
+        Base-state branch mutual admittance from ``from`` to ``to``.
+    y_tf_base : Complex128[np.ndarray, " n_branches"]
+        Base-state branch mutual admittance from ``to`` to ``from``.
+    y_tt_base : Complex128[np.ndarray, " n_branches"]
+        Base-state branch self-admittance at the ``to`` side.
     y_ff : Complex128[np.ndarray, " n_branches"]
         Branch self-admittance at the ``from`` side.
     y_ft : Complex128[np.ndarray, " n_branches"]
@@ -542,6 +588,9 @@ def _build_delta_block(
         Mapping from bus indices to angle-equation indices.
     magnitude_idx_map : Int[np.ndarray, " n_eq_jacobian"]
         Mapping from bus indices to magnitude-equation indices.
+    apply_split_bus_adjustment : bool
+        Whether to include the additional diagonal terms associated with
+        activating the newly split PQ bus.
 
     Returns
     -------
@@ -554,6 +603,7 @@ def _build_delta_block(
     _accumulate_branch_reassignment_delta(
         delta_block=delta_block,
         position_lookup=position_lookup,
+        branch_indices_with_delta=branch_indices_with_delta,
         branches_connected_to_bus_b=branches_connected_to_bus_b,
         bus_to_split=bus_to_split,
         new_bus_b_index=new_bus_b_index,
@@ -561,6 +611,10 @@ def _build_delta_block(
         branch_to=branch_to,
         v_mag_hat=v_mag_hat,
         theta_hat=theta_hat,
+        y_ff_base=y_ff_base,
+        y_ft_base=y_ft_base,
+        y_tf_base=y_tf_base,
+        y_tt_base=y_tt_base,
         y_ff=y_ff,
         y_ft=y_ft,
         y_tf=y_tf,
@@ -580,13 +634,14 @@ def _build_delta_block(
         angle_idx_map=angle_idx_map,
         magnitude_idx_map=magnitude_idx_map,
     )
-    _apply_new_bus_diagonal_adjustment(
-        delta_block=delta_block,
-        position_lookup=position_lookup,
-        new_bus_b_index=new_bus_b_index,
-        angle_idx_map=angle_idx_map,
-        magnitude_idx_map=magnitude_idx_map,
-    )
+    if apply_split_bus_adjustment:
+        _apply_new_bus_diagonal_adjustment(
+            delta_block=delta_block,
+            position_lookup=position_lookup,
+            new_bus_b_index=new_bus_b_index,
+            angle_idx_map=angle_idx_map,
+            magnitude_idx_map=magnitude_idx_map,
+        )
     return delta_block
 
 
@@ -609,6 +664,11 @@ def compute_bsdf_update(
     y_shunt: Complex128[np.ndarray, " n_shunts"],
     angle_component_indices: Int[np.ndarray, " n_eq_jacobian"],
     magnitude_component_indices: Int[np.ndarray, " n_eq_jacobian"],
+    y_ff_base: Complex128[np.ndarray, " n_branches"] | None = None,
+    y_ft_base: Complex128[np.ndarray, " n_branches"] | None = None,
+    y_tf_base: Complex128[np.ndarray, " n_branches"] | None = None,
+    y_tt_base: Complex128[np.ndarray, " n_branches"] | None = None,
+    apply_split_bus_adjustment: bool = True,
 ) -> Float[np.ndarray, " n_eq n_eq"]:
     """Compute the BSDF update for a bus split with the full-rank update approach.
 
@@ -653,6 +713,22 @@ def compute_bsdf_update(
         The mapping from bus indices to angle component indices in the Jacobian.
     magnitude_component_indices : Int[np.ndarray, " n_eq_jacobian"]
         The mapping from bus indices to magnitude component indices in the Jacobian.
+    y_ff_base : Complex128[np.ndarray, " n_branches"] | None, optional
+        Base-state ``from-from`` branch admittances before any transformer tap updates.
+        If omitted, ``y_ff`` is used.
+    y_ft_base : Complex128[np.ndarray, " n_branches"] | None, optional
+        Base-state ``from-to`` branch admittances before any transformer tap updates.
+        If omitted, ``y_ft`` is used.
+    y_tf_base : Complex128[np.ndarray, " n_branches"] | None, optional
+        Base-state ``to-from`` branch admittances before any transformer tap updates.
+        If omitted, ``y_tf`` is used.
+    y_tt_base : Complex128[np.ndarray, " n_branches"] | None, optional
+        Base-state ``to-to`` branch admittances before any transformer tap updates.
+        If omitted, ``y_tt`` is used.
+    apply_split_bus_adjustment : bool, optional
+        Whether to include the additional diagonal terms associated with activating
+        a newly split PQ bus. Set to ``False`` for pure transformer tap updates
+        without any topology split.
 
     Returns
     -------
@@ -662,13 +738,30 @@ def compute_bsdf_update(
     if new_bus_type != 2:
         raise NotImplementedError("Only PQ splits are supported")
 
-    if branches_connected_to_bus_b.size == 0 and shunt_connected_to_bus_b.size == 0:
+    y_ff_base_arr = y_ff if y_ff_base is None else np.asarray(y_ff_base, dtype=np.complex128)
+    y_ft_base_arr = y_ft if y_ft_base is None else np.asarray(y_ft_base, dtype=np.complex128)
+    y_tf_base_arr = y_tf if y_tf_base is None else np.asarray(y_tf_base, dtype=np.complex128)
+    y_tt_base_arr = y_tt if y_tt_base is None else np.asarray(y_tt_base, dtype=np.complex128)
+
+    changed_branch_mask = ~(
+        np.isclose(y_ff_base_arr, y_ff)
+        & np.isclose(y_ft_base_arr, y_ft)
+        & np.isclose(y_tf_base_arr, y_tf)
+        & np.isclose(y_tt_base_arr, y_tt)
+    )
+    branch_indices_with_delta = np.union1d(
+        np.asarray(branches_connected_to_bus_b, dtype=int),
+        np.flatnonzero(changed_branch_mask),
+    ).astype(int, copy=False)
+
+    if branch_indices_with_delta.size == 0 and shunt_connected_to_bus_b.size == 0:
         return jacobian_inv.copy()
     if new_bus_b_index >= angle_component_indices.size or new_bus_b_index >= magnitude_component_indices.size:
         raise IndexError("New bus index is out of bounds for component index arrays")
     idx_list = _collect_targeted_indices(
         bus_to_split=bus_to_split,
         new_bus_b_index=new_bus_b_index,
+        branch_indices_with_delta=branch_indices_with_delta,
         branches_connected_to_bus_b=branches_connected_to_bus_b,
         shunt_connected_to_bus_b=shunt_connected_to_bus_b,
         branch_from=branch_from,
@@ -676,6 +769,7 @@ def compute_bsdf_update(
         shunt_to_bus=shunt_to_bus,
         angle_idx_map=angle_component_indices,
         magnitude_idx_map=magnitude_component_indices,
+        include_new_bus=apply_split_bus_adjustment,
     )
     if idx_list.size == 0:
         return jacobian_inv.copy()
@@ -683,6 +777,7 @@ def compute_bsdf_update(
     delta_block = _build_delta_block(
         idx_list=idx_list,
         dtype=jacobian_inv.dtype,
+        branch_indices_with_delta=branch_indices_with_delta,
         branches_connected_to_bus_b=branches_connected_to_bus_b,
         shunt_connected_to_bus_b=shunt_connected_to_bus_b,
         bus_to_split=bus_to_split,
@@ -692,6 +787,10 @@ def compute_bsdf_update(
         shunt_to_bus=shunt_to_bus,
         v_mag_hat=v_mag_hat,
         theta_hat=theta_hat,
+        y_ff_base=y_ff_base_arr,
+        y_ft_base=y_ft_base_arr,
+        y_tf_base=y_tf_base_arr,
+        y_tt_base=y_tt_base_arr,
         y_ff=y_ff,
         y_ft=y_ft,
         y_tf=y_tf,
@@ -699,6 +798,7 @@ def compute_bsdf_update(
         y_shunt=y_shunt,
         angle_idx_map=angle_component_indices,
         magnitude_idx_map=magnitude_component_indices,
+        apply_split_bus_adjustment=apply_split_bus_adjustment,
     )
     if not np.any(delta_block):
         return jacobian_inv.copy()
