@@ -114,6 +114,10 @@ class BusParamSchema(pa.DataFrameModel):
     voltage_magnitude: pat.Series[float] = pa.Field(coerce=True, nullable=True)
     voltage_angle: pat.Series[float] = pa.Field(coerce=True, nullable=True)
     bus_type: pat.Series[int] = pa.Field(coerce=True, description="0:Slack, 1:PV, 2:PQ")
+    is_angle_reference: pat.Series[bool] = pa.Field(
+        coerce=True,
+        description="True for the bus used as the angle reference, independent of its voltage-control mode.",
+    )
     grid_island_id: pat.Series[int] = pa.Field(
         coerce=True, description="ID of the grid island the bus belongs to. 0 indicates the main grid."
     )

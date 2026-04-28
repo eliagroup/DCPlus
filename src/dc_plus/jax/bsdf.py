@@ -102,8 +102,9 @@ def _compute_bsdf_update_impl(
     angle_component_indices: Int[jnp.ndarray, " n_eq_jacobian"],
     magnitude_component_indices: Int[jnp.ndarray, " n_eq_jacobian"],
 ) -> Float[jnp.ndarray, " n_eq n_eq"]:
-    """Legacy implementation: materialize updated inverse transpose."""
-    dtype = jacobian_inv_transposed.dtype
+    """Materialize updated inverse transpose."""
+    # get dtype -> either float32 or float64 depending on input
+    dtype_input = v_mag_hat.dtype
     n_eq = jacobian_inv_transposed.shape[0]
 
     branch_from_old = jnp.take(branch_from, branches_connected_to_bus_b, axis=0)
@@ -262,7 +263,7 @@ def _compute_bsdf_update_impl(
     )
 
     k_shape = (k_max, k_max)
-    delta_block = jnp.zeros(k_shape, dtype=dtype)
+    delta_block = jnp.zeros(k_shape, dtype=dtype_input)
 
     def _accumulate(
         delta: jnp.ndarray, pos: jnp.ndarray, valid: jnp.ndarray, weight: float, target: jnp.ndarray
@@ -298,8 +299,8 @@ def _compute_bsdf_update_impl(
     theta_row = jnp.where(theta_mask, theta_new_pos, 0)
     mag_row = jnp.where(mag_mask, mag_new_pos, 0)
 
-    minus_one = jnp.asarray(-1.0, dtype=dtype)
-    zero_val = jnp.asarray(0.0, dtype=dtype)
+    minus_one = jnp.asarray(-1.0, dtype=dtype_input)
+    zero_val = jnp.asarray(0.0, dtype=dtype_input)
     theta_update = jnp.where(theta_mask, minus_one, zero_val)
     mag_update = jnp.where(mag_mask, minus_one, zero_val)
     delta_block = delta_block.at[theta_row, theta_row].add(theta_update)

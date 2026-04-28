@@ -408,6 +408,14 @@ class DynamicNetworkInformation:
     2: pq
     """
 
+    bus_is_angle_reference: Bool[np.ndarray, " n_buses"]
+    """Indicates which bus is used as the angle reference.
+
+    This is distinct from the bus voltage-control mode. A reference bus can lose
+    voltage control after an outage and become a PQ bus while still fixing the
+    global angle reference.
+    """
+
     # injection data
 
     injection_to_bus: Int[np.ndarray, " n_injections n_timestep"]
@@ -461,14 +469,14 @@ class DynamicNetworkInformation:
 
     @property
     def slack_indices(self) -> np.ndarray:
-        """Return the indices of the slack bus.
+        """Return the indices of the angle-reference bus.
 
         Returns
         -------
         slack_index : np.ndarray
-            The indices of the slack bus.
+            The indices of the angle-reference bus.
         """
-        slack_index = np.flatnonzero(self.bus_type == BusType.SLACK)
+        slack_index = np.flatnonzero(self.bus_is_angle_reference)
         return slack_index
 
     def is_pv_bus(self, bus_index: int) -> bool:
@@ -547,7 +555,7 @@ class DynamicNetworkInformation:
         pv_buses_mask : np.ndarray
             A boolean mask indicating which buses are PV buses.
         """
-        pv_buses_mask = self.bus_type == BusType.PV
+        pv_buses_mask = (self.bus_type == BusType.PV) & ~self.bus_is_angle_reference
         return pv_buses_mask
 
     @property
@@ -564,14 +572,14 @@ class DynamicNetworkInformation:
 
     @property
     def pvpq_buses_mask(self) -> np.ndarray:
-        """Return a boolean mask indicating which buses are PV or PQ buses.
+        """Return a boolean mask indicating which buses participate in angle equations.
 
         Returns
         -------
         pvpq_buses_mask : np.ndarray
             A boolean mask indicating which buses are PV or PQ buses.
         """
-        pvpq_buses_mask = (self.bus_type == BusType.PV) | (self.bus_type == BusType.PQ)
+        pvpq_buses_mask = ~self.bus_is_angle_reference
         return pvpq_buses_mask
 
     @property
@@ -583,7 +591,7 @@ class DynamicNetworkInformation:
         pv_buses_indices : np.ndarray
             The indices of the PV buses.
         """
-        pv_buses_indices = np.flatnonzero(self.bus_type == BusType.PV)
+        pv_buses_indices = np.flatnonzero(self.pv_buses_mask)
         return pv_buses_indices
 
     @property
@@ -595,31 +603,32 @@ class DynamicNetworkInformation:
         pq_buses_indices : np.ndarray
             The indices of the PQ buses.
         """
-        pq_buses_indices = np.flatnonzero(self.bus_type == BusType.PQ)
+        pq_buses_indices = np.flatnonzero(self.pq_buses_mask)
         return pq_buses_indices
 
     @property
     def pvpq_buses_indices(self) -> np.ndarray:
-        """Return the indices of the PV and PQ buses.
+        """Return the indices of buses participating in angle equations.
 
         Returns
         -------
         pvpq_buses_indices : np.ndarray
             The indices of the PV and PQ buses.
         """
-        pvpq_buses_indices = np.flatnonzero((self.bus_type == BusType.PV) | (self.bus_type == BusType.PQ))
+        pvpq_buses_indices = np.flatnonzero(self.pvpq_buses_mask)
         return pvpq_buses_indices
 
     @property
     def pvpq_buses_indices_pvpq_order(self) -> np.ndarray:
-        """Return the indices of the PV and PQ buses.
+        """Return the indices of buses participating in angle equations.
 
         Returns
         -------
         pvpq_buses_indices : np.ndarray
             The indices of the PV and PQ buses.
         """
-        pvpq_buses_indices = np.concatenate((self.pv_buses_indices, self.pq_buses_indices))
+        pq_angle_indices = self.pq_buses_indices[~self.bus_is_angle_reference[self.pq_buses_indices]]
+        pvpq_buses_indices = np.concatenate((self.pv_buses_indices, pq_angle_indices))
         return pvpq_buses_indices
 
     # injections
@@ -752,6 +761,9 @@ def _check_network_data_consistency(
     )
     assert dynamic_network_data.bus_voltage_magnitudes.shape[0] == dynamic_network_data.bus_type.shape[0], (
         "Inconsistent number of buses between bus_voltage_magnitudes and bus_type."
+    )
+    assert dynamic_network_data.bus_voltage_magnitudes.shape[0] == dynamic_network_data.bus_is_angle_reference.shape[0], (
+        "Inconsistent number of buses between bus_voltage_magnitudes and bus_is_angle_reference."
     )
 
     # check injection data
