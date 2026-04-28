@@ -161,8 +161,9 @@ def _get_branches_with_bus_index(net: Network, branches: pd.DataFrame) -> pd.Dat
         The branches with bus index of the network.
     """
     bus = _get_bus_ids_with_dangling_buses(net)
-    branches["from_bus_index"] = branches["bus1_id"].map(dict(zip(bus["id_str"], bus.index, strict=False)))
-    branches["to_bus_index"] = branches["bus2_id"].map(dict(zip(bus["id_str"], bus.index, strict=False)))
+    bus_index_by_id = dict(zip(bus["id_str"], bus.index, strict=False))
+    branches["from_bus_index"] = branches["bus1_id"].map(bus_index_by_id).fillna(-1).astype(int)
+    branches["to_bus_index"] = branches["bus2_id"].map(bus_index_by_id).fillna(-1).astype(int)
     return branches
 
 
@@ -193,7 +194,8 @@ def _get_injection_with_bus_index(
         The injections with bus index of the network.
     """
     bus = _get_bus_ids_with_dangling_buses(net)
-    injections[target_column] = injections[source_column].map(dict(zip(bus["id_str"], bus.index, strict=False)))
+    bus_index_by_id = dict(zip(bus["id_str"], bus.index, strict=False))
+    injections[target_column] = injections[source_column].map(bus_index_by_id).fillna(-1).astype(int)
     return injections
 
 
@@ -1103,16 +1105,21 @@ def _get_dangling_buses(net: Network) -> BusParamSchema:
         The dangling buses of the network.
     """
     dangling_lines = _get_unpaired_dangling_lines(net)
-    available_attributes = ["boundary_v_mag", "boundary_v_angle"]
+    available_attributes = ["boundary_v_mag", "boundary_v_angle", "bus_id"]
     dangling_lines = net.get_dangling_lines(attributes=available_attributes).loc[dangling_lines.index]
     dangling_lines.rename(columns={"boundary_v_mag": "voltage_magnitude", "boundary_v_angle": "voltage_angle"}, inplace=True)
+
+    buses = net.get_buses(all_attributes=True).sort_index().reset_index(drop=False)
+    bus_id_column = "id" if "id" in buses.columns else "index"
+    buses.rename(columns={bus_id_column: "id_str"}, inplace=True)
+    buses["grid_island_id"] = _get_grid_island_ids(buses)
+    grid_island_by_bus_id = buses.set_index("id_str")["grid_island_id"].to_dict()
 
     dangling_buses = _get_dangling_bus_ids(net)
     dangling_buses.rename(columns={"dangling_bus_id": "id_str"}, inplace=True)
     dangling_buses["name"] = dangling_buses["id_str"]
     dangling_buses = dangling_buses.merge(dangling_lines, how="left", left_index=True, right_index=True)
-    # TODO: get values depending on the connected state and the bus_id of the dangling line
-    dangling_buses["grid_island_id"] = 0
+    dangling_buses["grid_island_id"] = dangling_buses["bus_id"].map(grid_island_by_bus_id).fillna(-1).astype(int)
     dangling_buses["bus_type"] = 2  # PQ bus
     dangling_buses["is_angle_reference"] = False
     bus_order_int_ids = _get_bus_ids_with_dangling_buses(net)
@@ -1161,7 +1168,8 @@ def _get_buses_powsybl(net: Network, slack_id: str, injections: InjectionParamSc
     buses.reset_index(drop=False, inplace=True)
     buses.rename(columns={"id": "id_str"}, inplace=True)
     buses["bus_type"] = 2  # PQ bus is default
-    buses["is_angle_reference"] = buses["id_str"].eq(reference_id)
+    effective_reference_id = reference_id if buses["id_str"].eq(reference_id).any() else slack_id
+    buses["is_angle_reference"] = buses["id_str"].eq(effective_reference_id)
 
     buses.rename(columns={"v_mag": "voltage_magnitude", "v_angle": "voltage_angle"}, inplace=True)
 
@@ -1228,7 +1236,7 @@ def _get_grid_island_ids(buses: pd.DataFrame) -> pd.Series:
     pd.Series
         The grid island ids of the buses.
     """
-    grid_island_id = buses["connected_component"]
+    grid_island_id = buses["connected_component"].copy()
     # change grid_island_id where synchronous_component != 0 to the node index of that bus
     max_grid_island_id = grid_island_id.max() + 1
     for island_id in range(grid_island_id.max() + 1):

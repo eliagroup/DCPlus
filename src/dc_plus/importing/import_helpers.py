@@ -69,7 +69,7 @@ def _remove_isolated_buses_injections(
         The filtered bus-connected elements without isolated buses.
     """
     main_grid = buses[buses["grid_island_id"] == 0]
-    injections = injections[injections["bus_index"].isin(main_grid["id_int"])]
+    injections = injections[(injections["bus_index"] >= 0) & injections["bus_index"].isin(main_grid["id_int"])]
     return injections
 
 
@@ -89,6 +89,51 @@ def _filter_main_grid_network_data(
     injections = _remove_isolated_buses_injections(buses, injections)
     shunts = _remove_isolated_buses_injections(buses, shunts)
     branches = _remove_isolated_branches(buses, branches)
+    buses, branches, injections, shunts = _reindex_main_grid_network_data(buses, branches, injections, shunts)
+    return buses, branches, injections, shunts
+
+
+def _remap_bus_reference_column(
+    dataframe: pd.DataFrame,
+    column: str,
+    bus_index_by_old_id: dict[int, int],
+) -> pd.DataFrame:
+    """Remap a bus reference column to compact main-grid-local indices."""
+    if column not in dataframe.columns:
+        return dataframe
+
+    dataframe[column] = dataframe[column].map(bus_index_by_old_id).fillna(-1).astype(int)
+    return dataframe
+
+
+def _reindex_main_grid_network_data(
+    buses: BusParamSchema,
+    branches: BranchParamSchema,
+    injections: InjectionParamSchema,
+    shunts: ShuntParamSchema,
+) -> tuple[
+    BusParamSchema,
+    BranchParamSchema,
+    InjectionParamSchema,
+    ShuntParamSchema,
+]:
+    """Compact main-grid bus numbering and remap all surviving bus references."""
+    buses = buses.sort_values("id_int").reset_index(drop=True).copy()
+    bus_index_by_old_id = {int(old_id): new_idx for new_idx, old_id in enumerate(buses["id_int"].to_numpy(dtype=int))}
+    buses["id_int"] = np.arange(len(buses), dtype=int)
+
+    branches = branches.copy()
+    branches = _remap_bus_reference_column(branches, "from_bus_index", bus_index_by_old_id)
+    branches = _remap_bus_reference_column(branches, "to_bus_index", bus_index_by_old_id)
+
+    injections = injections.copy()
+    injections = _remap_bus_reference_column(injections, "bus_index", bus_index_by_old_id)
+    injections = _remap_bus_reference_column(injections, "regulated_bus_id_int", bus_index_by_old_id)
+
+    shunts = shunts.copy()
+    shunts = _remap_bus_reference_column(shunts, "bus_index", bus_index_by_old_id)
+    shunts = _remap_bus_reference_column(shunts, "regulated_bus_id_int", bus_index_by_old_id)
+
     return buses, branches, injections, shunts
 
 
@@ -192,7 +237,10 @@ def _remove_isolated_branches(
     """
     main_grid = buses[buses["grid_island_id"] == 0]
     branches = branches[
-        (branches["from_bus_index"].isin(main_grid["id_int"])) & (branches["to_bus_index"].isin(main_grid["id_int"]))
+        (branches["from_bus_index"] >= 0)
+        & (branches["to_bus_index"] >= 0)
+        & (branches["from_bus_index"].isin(main_grid["id_int"]))
+        & (branches["to_bus_index"].isin(main_grid["id_int"]))
     ]
     return branches
 
