@@ -145,7 +145,9 @@ def _create_transformer_tap_information(
         rho=np.asarray([neutral_shift_ratio_rho], dtype=float),
         alpha=np.asarray([neutral_shift_angle], dtype=float),
     )
-
+    # check that y_series is not 0 for any branch
+    if np.any(np.isclose(y_series_neutral, 0.0)):
+        raise ValueError("Zero impedance branch detected. Check network Data!")
     neutral_y_series = y_series_neutral[0]
     neutral_y_charging_from = y_charging_from_neutral[0]
     neutral_y_charging_to = y_charging_to_neutral[0]

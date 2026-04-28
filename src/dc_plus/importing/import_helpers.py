@@ -232,7 +232,10 @@ def _get_branch_admittance_terms(
     Complex128[np.ndarray, " n_branches"],
 ]:
     """Build reusable branch admittance primitives from electrical parameters."""
-    y_series = 1 / (r + 1j * x)
+    if np.any(np.isclose(r + x, 0.0, rtol=1e-8)):
+        y_series = 0
+    else:
+        y_series = 1 / (r + 1j * x)
     y_charging_from = g1 + 1j * b1
     y_charging_to = g2 + 1j * b2
     rho_alpha = rho * np.exp(1j * alpha)
@@ -268,6 +271,9 @@ def _get_admittance_branches(
         rho=branches["rho"].to_numpy(dtype=float),
         alpha=branches["alpha"].to_numpy(dtype=float),
     )
+    # check that y_series is not 0 for any branch
+    if np.any(np.isclose(y_series, 0.0)):
+        raise ValueError("Zero impedance branch detected. Check network Data!")
     y_charging_symmetric = (y_charging_from + y_charging_to) / 2
 
     y_ff = (y_series + y_charging_from) / (rho_alpha * np.conj(rho_alpha))
