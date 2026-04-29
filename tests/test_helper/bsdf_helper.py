@@ -460,3 +460,27 @@ def run_reference_one_step(
     )
     _static_info, dynamic_info_one_step, string_info_one_step = create_network_data_pypowsybl(net)
     return dynamic_info_one_step, string_info_one_step
+
+
+def run_reference_full_ac(
+    net: Any,
+    bsdf_test_case: BsdfTestCase,
+    convergence_eps: str = "1e-12",
+    max_iterations: str = "20",
+) -> tuple[DynamicNetworkInformation, StringNetworkInformation]:
+    """Apply the reference switch pattern and run a tightly converged full AC load-flow."""
+    for switch_id in bsdf_test_case.open_switches:
+        net.open_switch(switch_id)
+    for switch_id in bsdf_test_case.close_switches:
+        net.close_switch(switch_id)
+
+    loadflow_parameter = get_powsybl_loadflow_parameter("hotstart_test")
+    loadflow_parameter.provider_parameters["newtonRaphsonConvEpsPerEq"] = convergence_eps
+    loadflow_parameter.provider_parameters["maxNewtonRaphsonIterations"] = max_iterations
+    lf_res = pypowsybl.loadflow.run_ac(net, parameters=loadflow_parameter)[0]
+    assert lf_res.status == pypowsybl._pypowsybl.LoadFlowComponentStatus.CONVERGED, (
+        f"Expected the reference full AC load-flow to converge, but got status={lf_res.status}, "
+        f"status_text={lf_res.status_text}, reference_bus_id={lf_res.reference_bus_id}."
+    )
+    _static_info, dynamic_info_full_ac, string_info_full_ac = create_network_data_pypowsybl(net)
+    return dynamic_info_full_ac, string_info_full_ac
