@@ -32,7 +32,7 @@ from dc_plus.interfaces.network_information import (
     StaticNetworkInformation,
     StringNetworkInformation,
 )
-from dc_plus.preprocess.create_network_data import create_network_data_pypowsbl
+from dc_plus.preprocess.create_network_data import create_network_data_pypowsybl
 
 logger = logging.getLogger(__name__)
 
@@ -164,7 +164,7 @@ def _load_test_grid(
             f"Status text: {loadflow_res_n0.status_text}, "
             f"Reference bus ID: {loadflow_res_n0.reference_bus_id}"
         )
-    static_info, dynamic_info, string_info = create_network_data_pypowsbl(net)
+    static_info, dynamic_info, string_info = create_network_data_pypowsybl(net)
     jacobian_data = _get_jacobian_data_from_network_data(dynamic_info)
 
     return net, static_info, dynamic_info, string_info, jacobian_data

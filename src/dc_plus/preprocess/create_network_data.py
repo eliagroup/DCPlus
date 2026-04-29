@@ -375,7 +375,7 @@ def _create_network_data(
     return static_info, dynamic_info, string_info
 
 
-def create_network_data(
+def create_network_data_pypowsybl(
     network: pypowsybl.network.Network, split_trafo_charging: bool = True
 ) -> tuple[StaticNetworkInformation, DynamicNetworkInformation, StringNetworkInformation]:
     """Create the network data from a Powsybl network.
@@ -420,10 +420,6 @@ def create_network_data(
         ratio_positions=ratio_positions,
         phase_positions=phase_positions,
     )
-
-
-# Backwards compatibility alias for existing imports.
-create_network_data_pypowsbl = create_network_data
 
 
 def _get_empty_tap_imports() -> tuple[

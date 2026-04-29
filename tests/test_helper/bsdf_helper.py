@@ -23,7 +23,7 @@ from dc_plus.interfaces.jacobian_network_data import (
     calculate_nodal_mismatch_network_data,
 )
 from dc_plus.interfaces.network_information import DynamicNetworkInformation, StringNetworkInformation
-from dc_plus.preprocess.create_network_data import create_network_data_pypowsbl
+from dc_plus.preprocess.create_network_data import create_network_data_pypowsybl
 from dc_plus.preprocess.preprocess_jacobian_bsdf import preprocess_jacobian_bsdf
 
 
@@ -458,5 +458,5 @@ def run_reference_one_step(
     assert lf_res.iteration_count == 1, (
         f"Expected the reference load-flow to converge in one step, but got {lf_res.iteration_count} iterations."
     )
-    _static_info, dynamic_info_one_step, string_info_one_step = create_network_data_pypowsbl(net)
+    _static_info, dynamic_info_one_step, string_info_one_step = create_network_data_pypowsybl(net)
     return dynamic_info_one_step, string_info_one_step

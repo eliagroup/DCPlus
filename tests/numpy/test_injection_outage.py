@@ -16,7 +16,7 @@ from dc_plus.importing.powsybl.powsybl_import import DANGLING_BUS_STRING_SUFFIX,
 from dc_plus.importing.powsybl.powsybl_loadflow_parameter import get_powsybl_loadflow_parameter
 from dc_plus.importing.powsybl.powsybl_network_helpers import _load_test_grid
 from dc_plus.numpy.injection_outage import non_voltage_regulating_injection_outage_dx
-from dc_plus.preprocess.create_network_data import create_network_data
+from dc_plus.preprocess.create_network_data import create_network_data_pypowsybl
 
 powsybl_networks = POWSYBL_NETWORKS_SHORT_LIST
 TOL = 1e-10
@@ -100,7 +100,7 @@ def test_non_voltage_regulating_injection_outage_numpy(get_net) -> None:
         if loadflow_res.status != pypowsybl._pypowsybl.LoadFlowComponentStatus.CONVERGED:
             continue
 
-        _, dynamic_info_n1, string_info_n1 = create_network_data(net_n1)
+        _, dynamic_info_n1, string_info_n1 = create_network_data_pypowsybl(net_n1)
         if not np.array_equal(string_info.bus_ids, string_info_n1.bus_ids):
             continue
 

@@ -20,7 +20,7 @@ from dc_plus.interfaces.jacobian_network_data import (
 )
 from dc_plus.interfaces.network_information import BusType
 from dc_plus.numpy.bsdf_full_rank import compute_bsdf_update
-from dc_plus.preprocess.create_network_data import create_network_data_pypowsbl
+from dc_plus.preprocess.create_network_data import create_network_data_pypowsybl
 from dc_plus.preprocess.preprocess_jacobian_bsdf import preprocess_jacobian_bsdf
 from tests.test_helper.bsdf_helper import (
     derive_bus_order,
@@ -122,7 +122,7 @@ def test_bsdf_full_rank_applies_phase_tap_change_before_split(
     micro_grid_be_network_with_replaced_transformers: pypowsybl.network.Network,
 ):
     net = micro_grid_be_network_with_replaced_transformers
-    _static_info_base, dynamic_info_base, string_info_base = create_network_data_pypowsbl(net)
+    _static_info_base, dynamic_info_base, string_info_base = create_network_data_pypowsybl(net)
     jacobian_data_base = _get_jacobian_data_from_network_data(dynamic_info_base)
     jacobian_data_with_extra_buses, dynamic_info_with_placeholders = preprocess_jacobian_bsdf(
         jacobian_data=jacobian_data_base,
@@ -149,7 +149,7 @@ def test_bsdf_full_rank_applies_phase_tap_change_before_split(
 
     net.update_phase_tap_changers(df=pd.DataFrame({"id": [phase_tap_changer["id"]], "tap": [updated_tap]}).set_index("id"))
 
-    _static_info_tap, dynamic_info_tap, _string_info_tap = create_network_data_pypowsbl(net)
+    _static_info_tap, dynamic_info_tap, _string_info_tap = create_network_data_pypowsybl(net)
     jacobian_data_tap = _get_jacobian_data_from_network_data(dynamic_info_tap)
     _jacobian_data_tap_extended, dynamic_info_tap_with_placeholders = preprocess_jacobian_bsdf(
         jacobian_data=jacobian_data_tap,
@@ -221,7 +221,7 @@ def test_bsdf_full_rank_applies_phase_tap_change_without_split(
     micro_grid_be_network_with_replaced_transformers: pypowsybl.network.Network,
 ):
     net = micro_grid_be_network_with_replaced_transformers
-    _static_info_base, dynamic_info_base, string_info_base = create_network_data_pypowsbl(net)
+    _static_info_base, dynamic_info_base, string_info_base = create_network_data_pypowsybl(net)
     jacobian_data_base = _get_jacobian_data_from_network_data(dynamic_info_base)
 
     phase_tap_changer = net.get_phase_tap_changers().reset_index().iloc[0]
@@ -234,7 +234,7 @@ def test_bsdf_full_rank_applies_phase_tap_change_without_split(
 
     net.update_phase_tap_changers(df=pd.DataFrame({"id": [phase_tap_changer["id"]], "tap": [updated_tap]}).set_index("id"))
 
-    _static_info_tap, dynamic_info_tap, _string_info_tap = create_network_data_pypowsbl(net)
+    _static_info_tap, dynamic_info_tap, _string_info_tap = create_network_data_pypowsybl(net)
     jacobian_data_tap = _get_jacobian_data_from_network_data(dynamic_info_tap)
 
     jacobian_inv_bsdf = compute_bsdf_update(

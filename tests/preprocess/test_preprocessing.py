@@ -11,7 +11,7 @@ import pypowsybl
 
 from dc_plus.importing.powsybl.powsybl_network_helpers import _load_test_grid
 from dc_plus.interfaces.jacobian_network_data import _get_jacobian_data_from_network_data
-from dc_plus.preprocess.create_network_data import create_network_data_pypowsbl
+from dc_plus.preprocess.create_network_data import create_network_data_pypowsybl
 
 
 def test_disconnected_branches():
@@ -24,7 +24,7 @@ def test_disconnected_branches():
 
     net_n1 = deepcopy(net)
     net_n1.remove_elements(string_info.branch_ids[0])
-    static_info_n1_direct, dynamic_info_n1_direct, string_info_n1_direct = create_network_data_pypowsbl(net_n1)
+    static_info_n1_direct, dynamic_info_n1_direct, string_info_n1_direct = create_network_data_pypowsybl(net_n1)
     jacobian_data_n1_direct = _get_jacobian_data_from_network_data(dynamic_info_n1_direct)
 
     assert abs(jacobian_data_n1.jacobian - jacobian_data_n1_direct.jacobian).max() < 1e-10

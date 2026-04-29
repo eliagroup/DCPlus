@@ -45,7 +45,7 @@ from dc_plus.importing.powsybl.powsybl_import import (
     _get_tap_changer_parameter_powsybl,
 )
 from dc_plus.importing.powsybl.powsybl_import_helpers import select_a_generator_as_slack_and_run_loadflow
-from dc_plus.preprocess.create_network_data import create_network_data
+from dc_plus.preprocess.create_network_data import create_network_data_pypowsybl
 
 from dc_plus.interfaces.network_information import BusType
 
@@ -119,7 +119,7 @@ def test_create_network_data_populates_transformer_tap_information(
     micro_grid_be_network_with_replaced_transformers: pypowsybl.network.Network,
 ):
     net = micro_grid_be_network_with_replaced_transformers
-    static_info, dynamic_info, string_info = create_network_data(net)
+    static_info, dynamic_info, string_info = create_network_data_pypowsybl(net)
 
     branch_index_by_id = {str(branch_id): idx for idx, branch_id in enumerate(string_info.branch_ids)}
     ratio_taps = net.get_ratio_tap_changers()["tap"].to_dict()

@@ -19,7 +19,7 @@ from dc_plus.interfaces.network_information import (
     StringNetworkInformation,
 )
 from dc_plus.preprocess.create_network_data import (
-    create_network_data,
+    create_network_data_pypowsybl,
     create_network_data_pandapower,
 )
 
@@ -108,7 +108,7 @@ class NetworkImportComparator:
             Comparison results.
         """
         # Extract network data from both implementations
-        static_psb, dynamic_psb, string_psb = create_network_data(powsybl_network)
+        static_psb, dynamic_psb, string_psb = create_network_data_pypowsybl(powsybl_network)
         static_pp, dynamic_pp, string_pp = create_network_data_pandapower(pandapower_network)
 
         return self.compare_dynamic_network_info(dynamic_psb, dynamic_pp)

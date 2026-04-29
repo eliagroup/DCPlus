@@ -17,7 +17,7 @@ from dc_plus.interfaces.jacobian_network_data import (
     _get_jacobian_data_from_network_data,
     calculate_nodal_mismatch_network_data,
 )
-from dc_plus.preprocess.create_network_data import create_network_data_pypowsbl
+from dc_plus.preprocess.create_network_data import create_network_data_pypowsybl
 from dc_plus.preprocess.helper_functions import _find_bridges
 
 
@@ -40,7 +40,7 @@ def test_jacobian_update():
 
         net_n1 = deepcopy(net)
         net_n1.remove_elements(string_info.branch_ids[outage_idx])
-        static_info_n1_direct, dynamic_info_n1_direct, string_info_n1_direct = create_network_data_pypowsbl(net_n1)
+        static_info_n1_direct, dynamic_info_n1_direct, string_info_n1_direct = create_network_data_pypowsybl(net_n1)
         jacobian_data_n1_direct = _get_jacobian_data_from_network_data(dynamic_info_n1_direct)
         assert jacobian_data_n1.__eq__(jacobian_data_n1_direct), (
             "Jacobian data from n-1 network data and direct n-1 network data do not match."
@@ -55,7 +55,7 @@ def test_jacobian_update():
                 f"Reference bus ID: {loadflow_res.reference_bus_id}"
             )
 
-        static_info_n1_direct_lf, dynamic_info_n1_direct_lf, string_info_n1_direct_lf = create_network_data_pypowsbl(net_n1)
+        static_info_n1_direct_lf, dynamic_info_n1_direct_lf, string_info_n1_direct_lf = create_network_data_pypowsybl(net_n1)
         theta_actual_n1 = dynamic_info_n1_direct_lf.bus_voltage_angles_rad
         vm_actual_n1 = dynamic_info_n1_direct_lf.bus_voltage_magnitudes
 

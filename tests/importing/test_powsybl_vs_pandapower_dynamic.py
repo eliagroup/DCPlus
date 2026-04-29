@@ -32,7 +32,7 @@ from dc_plus.interfaces.network_information import (
     StringNetworkInformation,
 )
 from dc_plus.preprocess.create_network_data import (
-    create_network_data,
+    create_network_data_pypowsybl,
     create_network_data_pandapower,
 )
 
@@ -449,7 +449,7 @@ def test_powsybl_vs_pandapower_imports(network_func, network_name):
     if result[0].status.name != "CONVERGED":
         pytest.fail(f"{network_name}: Powsybl load flow did not converge ({result[0].status.name})")
 
-    static_psb, dynamic_psb_raw, string_psb_raw = create_network_data(psb_net)
+    static_psb, dynamic_psb_raw, string_psb_raw = create_network_data_pypowsybl(psb_net)
     static_pp, dynamic_pp_raw, string_pp_raw = create_network_data_pandapower(pp_net)
 
     limit_df_psb = _get_limits_parameter_psb(psb_net)
