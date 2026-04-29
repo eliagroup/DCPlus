@@ -7,6 +7,8 @@
 
 """Functions to compute the Jacobian matrix and related data from the dynamic network data."""
 
+from dataclasses import replace
+
 import numpy as np
 from jaxtyping import Float
 from scipy import sparse
@@ -220,3 +222,41 @@ def calculate_nodal_mismatch_network_data(
     pq_indices = dynamic_network_data.pq_buses_indices
 
     return np.r_[mismatch[pvpq_indices].real, mismatch[pq_indices].imag]
+
+
+def _apply_jacobian_dx_to_network_data(
+    dynamic_network_data: DynamicNetworkInformation,
+    dx: Float[np.ndarray, " n_eq_jacobian"],
+) -> DynamicNetworkInformation:
+    """Apply one Jacobian-ordered state increment to the network voltages.
+
+    Parameters
+    ----------
+    dynamic_network_data : DynamicNetworkInformation
+        Dynamic network data whose voltage state is updated.
+    dx : Float[np.ndarray, " n_eq_jacobian"]
+        State increment in Jacobian ordering ``[dtheta@(PV+PQ), dV@PQ]``.
+
+    Returns
+    -------
+    DynamicNetworkInformation
+        Copy of ``dynamic_network_data`` with updated voltage angles and magnitudes.
+    """
+    pvpq_indices = dynamic_network_data.pvpq_buses_indices_pvpq_order
+    pq_indices = dynamic_network_data.pq_buses_indices
+    n_angle = pvpq_indices.size
+    expected_size = n_angle + pq_indices.size
+
+    if dx.shape[0] != expected_size:
+        raise ValueError(f"Jacobian increment has size {dx.shape[0]}, expected {expected_size} for the given network data.")
+
+    updated_angles = np.asarray(dynamic_network_data.bus_voltage_angles_rad, dtype=float).copy()
+    updated_magnitudes = np.asarray(dynamic_network_data.bus_voltage_magnitudes, dtype=float).copy()
+    updated_angles[pvpq_indices] += dx[:n_angle]
+    updated_magnitudes[pq_indices] += dx[n_angle:]
+
+    return replace(
+        dynamic_network_data,
+        bus_voltage_angles_rad=updated_angles,
+        bus_voltage_magnitudes=updated_magnitudes,
+    )
