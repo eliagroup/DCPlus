@@ -5,7 +5,13 @@
 # you can obtain one at https://mozilla.org/MPL/2.0/.
 # Mozilla Public License, version 2.0
 
-"""Quasi-Newton voltage updates with inverse Broyden corrections."""
+"""Quasi-Newton voltage updates with inverse Broyden corrections.
+
+Based on:
+A Class of Methods for Solving Nonlinear Simultaneous Equations
+Author: C. G. Broyden
+Source: Mathematics of Computation, Vol. 19, No. 92 (Oct., 1965), pp. 577-593
+"""
 
 import numpy as np
 from jaxtyping import Float
@@ -25,7 +31,11 @@ def run_quasi_newton_updates(
     n_iterations: int = 2,
     y_matrix: sparse.sparray | None = None,
     regularization: float = 1e-12,
-) -> tuple[DynamicNetworkInformation, list[float]]:
+) -> tuple[
+    DynamicNetworkInformation,
+    list[float],
+    Float[np.ndarray, " n_eq_jacobian n_eq_jacobian"],
+]:
     """Run quasi-Newton steps with fast lazy inverse Broyden updates.
 
     This starts from a fixed inverse Jacobian approximation and applies
@@ -68,9 +78,10 @@ def run_quasi_newton_updates(
 
     Returns
     -------
-    tuple[DynamicNetworkInformation, list[float]]
-        Updated network state and mismatch infinity-norm history after each
-        quasi-Newton step.
+    tuple[DynamicNetworkInformation, list[float], Float[np.ndarray, " n_eq_jacobian n_eq_jacobian"]]
+        Updated network state, mismatch infinity-norm history after each
+        quasi-Newton step, and the final materialized inverse Jacobian
+        approximation.
 
     Raises
     ------
@@ -102,7 +113,7 @@ def run_quasi_newton_updates(
     # Each inverse Broyden update is:
     #     H_{k+1} = H_k + a_k b_k.T
     #
-    # The standard bad inverse-Broyden factors are:
+    # The second inverse-Broyden factors are:
     #     a_k = s_k - H_k y_k
     #     b_k = y_k / (y_k.T @ y_k)
     #
@@ -187,4 +198,6 @@ def run_quasi_newton_updates(
         updated_network_data = next_network_data
         mismatch = next_mismatch
 
-    return updated_network_data, mismatch_history
+    updated_inverse_jacobian = base_inverse_jacobian + a_factors[:, :n_active_factors] @ b_factors[:, :n_active_factors].T
+
+    return updated_network_data, mismatch_history, updated_inverse_jacobian

@@ -11,6 +11,7 @@ import pypowsybl
 import pytest
 
 from dc_plus.interfaces.jacobian_network_data import (
+    _apply_jacobian_dx_to_network_data,
     _get_admittance_matrix_from_network_data,
     _get_jacobian_data_from_network_data,
     calculate_nodal_mismatch_network_data,
@@ -27,6 +28,11 @@ from tests.test_helper.bsdf_helper import (
 )
 
 
+def _apply_inverse_jacobian_step(dynamic_info, jacobian_inv, y_matrix):
+    mismatch = calculate_nodal_mismatch_network_data(dynamic_info, y_matrix)
+    return _apply_jacobian_dx_to_network_data(dynamic_info, dx=-(jacobian_inv @ mismatch))
+
+
 def test_quasi_newton_zero_iteration_keeps_target_state(
     micro_grid_be_network_with_replaced_transformers: pypowsybl.network.Network,
 ):
@@ -34,7 +40,7 @@ def test_quasi_newton_zero_iteration_keeps_target_state(
     _static_info_base, dynamic_info_base, _string_info_base = create_network_data_pypowsybl(net)
     jacobian_data_base = _get_jacobian_data_from_network_data(dynamic_info_base)
 
-    dynamic_info_quasi_newton, mismatch_history = run_quasi_newton_updates(
+    dynamic_info_quasi_newton, mismatch_history, jacobian_inv_updated = run_quasi_newton_updates(
         jacobian_inv=jacobian_data_base.inverse_jacobian,
         dynamic_network_data=dynamic_info_base,
         n_iterations=0,
@@ -49,6 +55,12 @@ def test_quasi_newton_zero_iteration_keeps_target_state(
     np.testing.assert_allclose(
         dynamic_info_quasi_newton.bus_voltage_angles_rad,
         dynamic_info_base.bus_voltage_angles_rad,
+        rtol=1e-10,
+        atol=1e-10,
+    )
+    np.testing.assert_allclose(
+        jacobian_inv_updated,
+        jacobian_data_base.inverse_jacobian,
         rtol=1e-10,
         atol=1e-10,
     )
@@ -94,7 +106,7 @@ def test_quasi_newton_reduces_phase_tap_mismatch(
         apply_split_bus_adjustment=False,
     )
 
-    dynamic_info_quasi_newton, mismatch_history = run_quasi_newton_updates(
+    dynamic_info_quasi_newton, mismatch_history, _jacobian_inv_updated = run_quasi_newton_updates(
         jacobian_inv=jacobian_inv_bsdf,
         dynamic_network_data=dynamic_info_tap,
         n_iterations=10,
@@ -134,11 +146,12 @@ def test_quasi_newton_matches_full_ac_for_bsdf_cases(bsdf_test_case):
         magnitude_component_indices=setup.jacobian_data_with_extra_buses.magnitude_component_indices,
     )
 
-    dynamic_info_quasi_newton, mismatch_history = run_quasi_newton_updates(
+    y_matrix_split = _get_admittance_matrix_from_network_data(setup.dynamic_info_split_manual)
+    dynamic_info_quasi_newton, mismatch_history, jacobian_inv_updated = run_quasi_newton_updates(
         jacobian_inv=jacobian_inv_bsdf,
         dynamic_network_data=setup.dynamic_info_split_manual,
-        n_iterations=10,
-        y_matrix=_get_admittance_matrix_from_network_data(setup.dynamic_info_split_manual),
+        n_iterations=9,
+        y_matrix=y_matrix_split,
     )
 
     dynamic_info_full_ac, string_info_full_ac = run_reference_full_ac(setup.net, bsdf_test_case=bsdf_test_case)
@@ -204,6 +217,8 @@ def test_quasi_newton_matches_full_ac_for_bsdf_cases(bsdf_test_case):
         atol=1e-10,
     )
 
-    assert len(mismatch_history) == 10
+    mismatch_after = calculate_nodal_mismatch_network_data(dynamic_info_quasi_newton, y_matrix_split)
+
+    assert len(mismatch_history) == 9
     assert np.all(np.isfinite(mismatch_history))
-    assert mismatch_history[-1] < 1e-10
+    assert np.max(np.abs(mismatch_after)) < 1e-10

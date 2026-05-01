@@ -85,7 +85,7 @@ def test_quasi_newton_reduces_phase_tap_mismatch(
         y_tt_base=np.asarray(dynamic_info_base.branch_effective_admittance_to_to, dtype=np.complex128),
         apply_split_bus_adjustment=False,
     )
-    dynamic_info_quasi_newton_np, mismatch_history_np = run_quasi_newton_updates_numpy(
+    dynamic_info_quasi_newton_np, mismatch_history_np, jacobian_inv_quasi_newton_np = run_quasi_newton_updates_numpy(
         jacobian_inv=jacobian_inv_bsdf,
         dynamic_network_data=dynamic_info_tap,
         n_iterations=10,
@@ -113,6 +113,12 @@ def test_quasi_newton_reduces_phase_tap_mismatch(
     np.testing.assert_allclose(
         np.asarray(results_jax.mismatch_history),
         np.asarray(mismatch_history_np),
+        rtol=1e-8,
+        atol=1e-10,
+    )
+    np.testing.assert_allclose(
+        np.asarray(results_jax.jacobian_inv_transposed.T),
+        jacobian_inv_quasi_newton_np,
         rtol=1e-8,
         atol=1e-10,
     )
