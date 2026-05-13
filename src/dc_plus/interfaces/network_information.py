@@ -366,6 +366,24 @@ class DynamicNetworkInformation:
     Gets updated when tap positions change.
     """
 
+    branch_g_from: Float[np.ndarray, " n_branch n_timestep"]
+    """Conductance from side for the branches."""
+
+    branch_b_from: Float[np.ndarray, " n_branch n_timestep"]
+    """Susceptance from side for the branches."""
+
+    branch_g_to: Float[np.ndarray, " n_branch n_timestep"]
+    """Conductance to side for the branches."""
+
+    branch_b_to: Float[np.ndarray, " n_branch n_timestep"]
+    """Susceptance to side for the branches."""
+
+    branch_rho: Float[np.ndarray, " n_branch n_timestep"]
+    """Tap ratio for the branches."""
+
+    branch_shift_angle_rad: Float[np.ndarray, " n_branch n_timestep"]
+    """Shift angle in radians for the branches."""
+
     branch_effective_admittance_charging_symmetric: Float[np.complex128, " n_branch n_timestep"]
     """Symmetric charging admittance for the branches.
     Gets updated when tap positions change.
@@ -745,6 +763,24 @@ def _check_network_data_consistency(
     assert (
         dynamic_network_data.branch_from_bus.shape[0] == dynamic_network_data.branch_effective_admittance_to_from.shape[0]
     ), "Inconsistent number of branches between branch_from_nodes and branch_effective_admittance_to_from."
+    assert dynamic_network_data.branch_from_bus.shape[0] == dynamic_network_data.branch_g_from.shape[0], (
+        "Inconsistent number of branches between branch_from_nodes and branch_g_from."
+    )
+    assert dynamic_network_data.branch_from_bus.shape[0] == dynamic_network_data.branch_b_from.shape[0], (
+        "Inconsistent number of branches between branch_from_nodes and branch_b_from."
+    )
+    assert dynamic_network_data.branch_from_bus.shape[0] == dynamic_network_data.branch_g_to.shape[0], (
+        "Inconsistent number of branches between branch_from_nodes and branch_g_to."
+    )
+    assert dynamic_network_data.branch_from_bus.shape[0] == dynamic_network_data.branch_b_to.shape[0], (
+        "Inconsistent number of branches between branch_from_nodes and branch_b_to."
+    )
+    assert dynamic_network_data.branch_from_bus.shape[0] == dynamic_network_data.branch_rho.shape[0], (
+        "Inconsistent number of branches between branch_from_nodes and branch_rho."
+    )
+    assert dynamic_network_data.branch_from_bus.shape[0] == dynamic_network_data.branch_shift_angle_rad.shape[0], (
+        "Inconsistent number of branches between branch_from_nodes and branch_shift_angle_rad."
+    )
     assert dynamic_network_data.branch_from_bus.shape[0] == dynamic_network_data.branch_connected.shape[0], (
         "Inconsistent number of branches between branch_from_nodes and branch_connected."
     )
