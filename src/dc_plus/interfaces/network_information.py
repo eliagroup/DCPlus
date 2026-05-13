@@ -672,6 +672,41 @@ class DynamicNetworkInformation:
             The number of shunts in the network.
         """
         return self.shunt_bus_indices.shape[0]
+    
+    def dump_to_json(self) -> str:
+        """Dump the dynamic network information to a JSON string."""
+        import json
+
+        def convert_ndarray(obj):
+            if isinstance(obj, np.ndarray):
+                if np.iscomplexobj(obj):
+                    # For complex arrays, return dict with real and imag parts
+                    return {
+                    "real": obj.real.tolist(),
+                    "imag": obj.imag.tolist(),
+                    }
+                else:
+                    return obj.tolist()
+            elif isinstance(obj, (np.integer, np.floating)):
+                return obj.item()
+            elif isinstance(obj, (list, tuple)):
+                return [convert_ndarray(x) for x in obj]
+            elif isinstance(obj, dict):
+                return {k: convert_ndarray(v) for k, v in obj.items()}
+            else:
+                return obj
+
+        # Prepare dict for serialization, handling complex arrays
+        dict_res = {}
+        for key, value in self.__dict__.items():
+            if isinstance(value, np.ndarray) and np.iscomplexobj(value):
+                dict_res[key] = {
+                    "real": value.real.tolist(),
+                    "imag": value.imag.tolist(),
+                }
+            else:
+                dict_res[key] = convert_ndarray(value)
+        return json.dumps(dict_res)
 
 
 @dataclass
