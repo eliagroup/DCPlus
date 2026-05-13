@@ -673,9 +673,8 @@ class DynamicNetworkInformation:
         """
         return self.shunt_bus_indices.shape[0]
     
-    def dump_to_json(self) -> str:
-        """Dump the dynamic network information to a JSON string."""
-        import json
+    def dump_to_dict(self) -> dict:
+        """Dump the dynamic network information to a dictionary."""
 
         def convert_ndarray(obj):
             if isinstance(obj, np.ndarray):
@@ -706,7 +705,7 @@ class DynamicNetworkInformation:
                 }
             else:
                 dict_res[key] = convert_ndarray(value)
-        return json.dumps(dict_res)
+        return dict_res
 
 
 @dataclass
