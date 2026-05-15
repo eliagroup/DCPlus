@@ -340,6 +340,8 @@ def _create_network_data(
         branch_effective_admittance_to_to=y_tt,
         branch_effective_admittance_to_from=y_tf,
         branch_effective_admittance_series=y_series,
+        branch_r=branches["r"].to_numpy(dtype=float),
+        branch_x=branches["x"].to_numpy(dtype=float),
         branch_g_from=branches["g1"].to_numpy(dtype=float),
         branch_b_from=branches["b1"].to_numpy(dtype=float),
         branch_g_to=branches["g2"].to_numpy(dtype=float),

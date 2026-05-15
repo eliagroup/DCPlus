@@ -97,6 +97,25 @@ StringArray: TypeAlias = np.ndarray[np.str_, ...]
 def _arrays_equal(left: np.ndarray, right: np.ndarray) -> bool:
     return np.array_equal(np.asarray(left), np.asarray(right), equal_nan=True)
 
+def _convert_ndarray(obj):
+    if isinstance(obj, np.ndarray):
+        if np.iscomplexobj(obj):
+            # For complex arrays, return dict with real and imag parts
+            return {
+            "real": obj.real.tolist(),
+            "imag": obj.imag.tolist(),
+            }
+        else:
+            return obj.tolist()
+    elif isinstance(obj, (np.integer, np.floating)):
+        return obj.item()
+    elif isinstance(obj, (list, tuple)):
+        return [_convert_ndarray(x) for x in obj]
+    elif isinstance(obj, dict):
+        return {k: _convert_ndarray(v) for k, v in obj.items()}
+    else:
+        return obj
+
 
 @dataclass(eq=False)
 class TransformerTapInformation:
@@ -296,6 +315,21 @@ class StaticNetworkInformation:
         )
 
 
+    def dump_to_dict(self) -> dict:
+        """Dump the dynamic network information to a dictionary."""
+
+        # Prepare dict for serialization, handling complex arrays
+        dict_res = {}
+        for key, value in self.__dict__.items():
+            if isinstance(value, np.ndarray) and np.iscomplexobj(value):
+                dict_res[key] = {
+                    "real": value.real.tolist(),
+                    "imag": value.imag.tolist(),
+                }
+            else:
+                dict_res[key] = _convert_ndarray(value)
+        return dict_res
+
 @dataclass
 class DynamicNetworkInformation:
     """Contains all dynamic network information required for the DC+ solver.
@@ -365,6 +399,12 @@ class DynamicNetworkInformation:
     """Series admittance for the branches.
     Gets updated when tap positions change.
     """
+
+    branch_r: Float[np.ndarray, " n_branch n_timestep"]
+    """Resistance for the branches."""
+
+    branch_x: Float[np.ndarray, " n_branch n_timestep"]
+    """Reactance for the branches."""
 
     branch_g_from: Float[np.ndarray, " n_branch n_timestep"]
     """Conductance from side for the branches."""
@@ -676,25 +716,6 @@ class DynamicNetworkInformation:
     def dump_to_dict(self) -> dict:
         """Dump the dynamic network information to a dictionary."""
 
-        def convert_ndarray(obj):
-            if isinstance(obj, np.ndarray):
-                if np.iscomplexobj(obj):
-                    # For complex arrays, return dict with real and imag parts
-                    return {
-                    "real": obj.real.tolist(),
-                    "imag": obj.imag.tolist(),
-                    }
-                else:
-                    return obj.tolist()
-            elif isinstance(obj, (np.integer, np.floating)):
-                return obj.item()
-            elif isinstance(obj, (list, tuple)):
-                return [convert_ndarray(x) for x in obj]
-            elif isinstance(obj, dict):
-                return {k: convert_ndarray(v) for k, v in obj.items()}
-            else:
-                return obj
-
         # Prepare dict for serialization, handling complex arrays
         dict_res = {}
         for key, value in self.__dict__.items():
@@ -704,7 +725,7 @@ class DynamicNetworkInformation:
                     "imag": value.imag.tolist(),
                 }
             else:
-                dict_res[key] = convert_ndarray(value)
+                dict_res[key] = _convert_ndarray(value)
         return dict_res
 
 
@@ -740,6 +761,22 @@ class StringNetworkInformation:
 
     injection_ids: StringArray
     """ids of the injections, shape (n_injections,)"""
+
+
+    def dump_to_dict(self) -> dict:
+        """Dump the dynamic network information to a dictionary."""
+
+        # Prepare dict for serialization, handling complex arrays
+        dict_res = {}
+        for key, value in self.__dict__.items():
+            if isinstance(value, np.ndarray) and np.iscomplexobj(value):
+                dict_res[key] = {
+                    "real": value.real.tolist(),
+                    "imag": value.imag.tolist(),
+                }
+            else:
+                dict_res[key] = _convert_ndarray(value)
+        return dict_res
 
 
 def _check_network_data_consistency(
