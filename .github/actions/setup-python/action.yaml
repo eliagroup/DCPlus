@@ -12,7 +12,7 @@ inputs:
   uv-version:
     description: 'Version of uv to install'
     required: false
-    default: '0.11.2'
+    default: '0.11.14'
   sync-args:
     description: 'Additional arguments to pass to uv sync'
     required: false
