@@ -32,7 +32,7 @@ requires-python = ">=3.11,<3.12"
 
 
 dependencies = [
-    "pydantic>=2.13.3,<3.0.0",
+    "pydantic>=2.13.4,<3.0.0",
     "pandapower>=3.0.0,<4.0.0",
     "pypowsybl>=1.14.0",
     "numpydantic>=1.6.4,<2.0.0",
