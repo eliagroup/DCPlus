@@ -21,6 +21,7 @@ def _branch_state_indices(
     branch_to: Int[np.ndarray, " n_branches"],
     angle_component_indices: Int[np.ndarray, " n_eq_jacobian"],
     magnitude_component_indices: Int[np.ndarray, " n_eq_jacobian"],
+    reactive_power_bus_mask: np.ndarray | None = None,
 ) -> tuple[Int[np.ndarray, "4"], np.ndarray]:
     """Return mapping from branch end states to Jacobian indices.
 
@@ -38,6 +39,9 @@ def _branch_state_indices(
     magnitude_component_indices : Int[np.ndarray, " n_eq_jacobian"]
         Mapping from node index to voltage magnitude equation index in Jacobian.
         Entries are -1 for nodes without voltage magnitude equation.
+    reactive_power_bus_mask : np.ndarray | None, optional
+        Optional mask indicating which buses retain reactive-power equation rows
+        in the Jacobian layout.
 
     Returns
     -------
@@ -51,6 +55,12 @@ def _branch_state_indices(
     idx_theta_t = angle_component_indices[branch_to[branch_idx]]
     idx_u_f = magnitude_component_indices[branch_from[branch_idx]]
     idx_u_t = magnitude_component_indices[branch_to[branch_idx]]
+
+    if reactive_power_bus_mask is not None:
+        if not reactive_power_bus_mask[branch_from[branch_idx]]:
+            idx_u_f = -1
+        if not reactive_power_bus_mask[branch_to[branch_idx]]:
+            idx_u_t = -1
 
     idx_arr = np.array([idx_theta_f, idx_theta_t, idx_u_f, idx_u_t], dtype=np.int32)
     valid_mask = idx_arr >= 0
@@ -209,7 +219,7 @@ def _compute_branch_delta_submatrix_from_admittance(
     dqt_dvt = -2.0 * v_t * b_tt + v_f * (g_tf * sin_tf - b_tf * cos_tf)
     dqt_dvf = v_t * (g_tf * sin_tf - b_tf * cos_tf)
 
-    dtype = np.result_type(v_mag_from, v_mag_to, theta_from, theta_to, y_ff)
+    dtype = np.result_type(v_mag_from, v_mag_to, theta_from, theta_to, g_ff)
 
     delta = np.array(
         [
@@ -237,6 +247,7 @@ def _prepare_low_rank_factors_from_admittance(
     y_tt: Complex128[np.ndarray, " n_branches"],
     angle_component_indices: Int[np.ndarray, " n_eq_jacobian"],
     magnitude_component_indices: Int[np.ndarray, " n_eq_jacobian"],
+    reactive_power_bus_mask: np.ndarray | None = None,
 ) -> Tuple[Float[np.ndarray, "4 4"], Int[np.ndarray, "4"]]:
     """Build low-rank factors for a line outage from pi-model admittances.
 
@@ -266,6 +277,9 @@ def _prepare_low_rank_factors_from_admittance(
     magnitude_component_indices : Int[np.ndarray, " n_eq_jacobian"]
         Mapping from node index to voltage magnitude equation index in Jacobian.
         Entries are -1 for nodes without voltage magnitude equation.
+    reactive_power_bus_mask : np.ndarray | None, optional
+        Optional mask indicating which buses retain reactive-power equation rows
+        in the Jacobian layout.
 
     Returns
     -------
@@ -281,6 +295,7 @@ def _prepare_low_rank_factors_from_admittance(
         branch_to=branch_to,
         angle_component_indices=angle_component_indices,
         magnitude_component_indices=magnitude_component_indices,
+        reactive_power_bus_mask=reactive_power_bus_mask,
     )
 
     f = branch_from[branch_idx]

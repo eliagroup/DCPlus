@@ -26,13 +26,9 @@ from pypowsybl.security.impl.security_analysis_result import SecurityAnalysisRes
 from dc_plus.importing.powsybl.powsybl_import_helpers import select_a_generator_as_slack_and_run_loadflow
 from dc_plus.importing.powsybl.powsybl_loadflow_parameter import get_powsybl_loadflow_parameter
 from dc_plus.interfaces.jacobian_interface import JacobianInterface
-from dc_plus.interfaces.jacobian_network_data import _get_jacobian_data_from_network_data
-from dc_plus.interfaces.network_information import (
-    DynamicNetworkInformation,
-    StaticNetworkInformation,
-    StringNetworkInformation,
-)
-from dc_plus.preprocess.create_network_data import create_network_data_pypowsbl
+from dc_plus.interfaces.jacobian_network_data import get_jacobian_data_from_network_data
+from dc_plus.interfaces.network_information import NetworkInformation
+from dc_plus.preprocess.create_network_data import create_network_data_pypowsybl
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +133,9 @@ def get_bus_branch_ids_for_n1_results(net: Network, security_analysis_result: Se
 
 def _load_test_grid(
     get_net: callable,
-) -> tuple[Network, StaticNetworkInformation, DynamicNetworkInformation, StringNetworkInformation, JacobianInterface]:
+    use_reactive_limits: bool = False,
+    set_limited_generators_to_not_voltage_regulator: bool = False,
+) -> tuple[Network, NetworkInformation, JacobianInterface]:
     """Load a test pandapower or powsybl grid and prepare the network data and Jacobian."""
     is_powsybl_net = isinstance(get_net(), pypowsybl.network.Network)
     if is_powsybl_net:
@@ -157,6 +155,7 @@ def _load_test_grid(
     net.per_unit = True
     loadflow_parameter = get_powsybl_loadflow_parameter("hotstart_test")
     loadflow_parameter.provider_parameters["newtonRaphsonConvEpsPerEq"] = "1e-12"
+    loadflow_parameter.use_reactive_limits = use_reactive_limits
     loadflow_res_n0 = pypowsybl.loadflow.run_ac(net, parameters=loadflow_parameter)[0]
     if loadflow_res_n0.status != pypowsybl._pypowsybl.LoadFlowComponentStatus.CONVERGED:
         raise ValueError(
@@ -164,10 +163,32 @@ def _load_test_grid(
             f"Status text: {loadflow_res_n0.status_text}, "
             f"Reference bus ID: {loadflow_res_n0.reference_bus_id}"
         )
-    static_info, dynamic_info, string_info = create_network_data_pypowsbl(net)
-    jacobian_data = _get_jacobian_data_from_network_data(dynamic_info)
 
-    return net, static_info, dynamic_info, string_info, jacobian_data
+    # fix the voltage regulator to False for generators that are at their reactive limits
+    # ensures same behavior between pypowsybl load flow and our solver regarding reactive limits
+    if set_limited_generators_to_not_voltage_regulator and use_reactive_limits:
+        g = net.get_generators(attributes=["max_q_at_p", "min_q_at_p", "q", "voltage_regulator_on"])
+        threshold = 1e-9
+        powsybl_g_switch = g[(g["q"] > -g["min_q_at_p"] - threshold) | (g["q"] < -g["max_q_at_p"] + threshold)]
+        powsybl_g_switch = powsybl_g_switch[["voltage_regulator_on", "q"]]
+        powsybl_g_switch.rename(columns={"q": "target_q"}, inplace=True)
+        powsybl_g_switch.loc[:, "voltage_regulator_on"] = False
+        powsybl_g_switch.loc[:, "target_q"] = -powsybl_g_switch.loc[:, "target_q"]
+        net.update_generators(powsybl_g_switch)
+        loadflow_res_n0 = pypowsybl.loadflow.run_ac(net, parameters=loadflow_parameter)[0]
+        if loadflow_res_n0.status != pypowsybl._pypowsybl.LoadFlowComponentStatus.CONVERGED:
+            raise ValueError(
+                f"Load flow did not converge. Status: {loadflow_res_n0.status}, "
+                f"Status text: {loadflow_res_n0.status_text}, "
+                f"Reference bus ID: {loadflow_res_n0.reference_bus_id}"
+            )
+
+    network_info = create_network_data_pypowsybl(net)
+    jacobian_data = get_jacobian_data_from_network_data(
+        network_info.dynamic_network_data,
+    )
+
+    return net, network_info, jacobian_data
 
 
 def load_pandapower_net_for_powsybl(net: pandapower.pandapowerNet) -> pypowsybl.network.Network:
@@ -229,6 +250,15 @@ def load_pandapower_net_for_powsybl_with_convert_from_pandapower(net: pandapower
     pypowsybl.network.Network
         The converted pypowsybl network.
     """
+    if "sgen" in net and not net.sgen.empty:
+        if "max_p_mw" in net.sgen.columns:
+            net.sgen.loc[net.sgen["max_p_mw"].isna(), "max_p_mw"] = 500.0
+        if "min_p_mw" in net.sgen.columns:
+            net.sgen.loc[net.sgen["min_p_mw"].isna(), "min_p_mw"] = -500.0
+        if "max_q_mvar" in net.sgen.columns:
+            net.sgen.loc[net.sgen["max_q_mvar"].isna(), "max_q_mvar"] = 500.0
+        if "min_q_mvar" in net.sgen.columns:
+            net.sgen.loc[net.sgen["min_q_mvar"].isna(), "min_q_mvar"] = -500.0
     pypowsybl_network = pypowsybl.network.convert_from_pandapower(net)
     return pypowsybl_network
 

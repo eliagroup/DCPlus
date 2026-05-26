@@ -214,19 +214,11 @@ def branch_outage_update_inverse(
     updated_inv : Float[np.ndarray, " n_eq n_eq"]
         The updated inverse Jacobian after applying outages.
     """
-    jacobian_inv_arr = np.asarray(jacobian_inv)
+    jacobian_inv_arr = jacobian_inv
     if not np.issubdtype(jacobian_inv_arr.dtype, np.floating):
         jacobian_inv_arr = jacobian_inv_arr.astype(float)
 
     updated_inv = jacobian_inv_arr.copy()
-
-    v_mag = np.asarray(v_mag_hat).reshape(-1)
-    theta = np.asarray(theta_hat).reshape(-1)
-
-    y_ff_arr = np.asarray(y_ff)
-    y_ft_arr = np.asarray(y_ft)
-    y_tf_arr = np.asarray(y_tf)
-    y_tt_arr = np.asarray(y_tt)
 
     # Note: this is a reference implementation and is not optimized for performance.
     # In particular, multiple outages could be processed together for better efficiency.
@@ -235,12 +227,12 @@ def branch_outage_update_inverse(
             branch_idx=branch,
             branch_from=branch_from,
             branch_to=branch_to,
-            v_mag_hat=v_mag,
-            theta_hat=theta,
-            y_ff=y_ff_arr,
-            y_ft=y_ft_arr,
-            y_tf=y_tf_arr,
-            y_tt=y_tt_arr,
+            v_mag_hat=v_mag_hat,
+            theta_hat=theta_hat,
+            y_ff=y_ff,
+            y_ft=y_ft,
+            y_tf=y_tf,
+            y_tt=y_tt,
             angle_component_indices=angle_component_indices,
             magnitude_component_indices=magnitude_component_indices,
         )

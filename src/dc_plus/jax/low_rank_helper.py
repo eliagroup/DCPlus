@@ -18,15 +18,18 @@ from typing import Tuple
 import jax.numpy as jnp
 from jaxtyping import Complex128, Float, Int
 
-# ruff: noqa: PLR0913
+from ..interfaces.network_inputs import (
+    JacobianComponentInputs,
+    NetworkAdmittanceInputs,
+    NetworkTopologyInputs,
+    VoltageStateInputs,
+)
 
 
 def _branch_state_indices(
     branch_idx: Int[jnp.ndarray, ""],
-    branch_from: Int[jnp.ndarray, " n_branches"],
-    branch_to: Int[jnp.ndarray, " n_branches"],
-    angle_component_indices: Int[jnp.ndarray, " n_nodes"],
-    magnitude_component_indices: Int[jnp.ndarray, " n_nodes"],
+    network_topology: NetworkTopologyInputs,
+    jacobian_components: JacobianComponentInputs,
 ) -> tuple[Int[jnp.ndarray, "4"], jnp.ndarray]:
     """Return mapping from branch end states to Jacobian indices.
 
@@ -34,10 +37,10 @@ def _branch_state_indices(
     u_from, u_to) and a boolean mask indicating which of these states map into
     the system of equations. Invalid entries have their mask bit cleared.
     """
-    idx_theta_f = angle_component_indices[branch_from[branch_idx]]
-    idx_theta_t = angle_component_indices[branch_to[branch_idx]]
-    idx_u_f = magnitude_component_indices[branch_from[branch_idx]]
-    idx_u_t = magnitude_component_indices[branch_to[branch_idx]]
+    idx_theta_f = jacobian_components.angle_component_indices[network_topology.branch_from[branch_idx]]
+    idx_theta_t = jacobian_components.angle_component_indices[network_topology.branch_to[branch_idx]]
+    idx_u_f = jacobian_components.magnitude_component_indices[network_topology.branch_from[branch_idx]]
+    idx_u_t = jacobian_components.magnitude_component_indices[network_topology.branch_to[branch_idx]]
 
     idx_arr = jnp.stack([idx_theta_f, idx_theta_t, idx_u_f, idx_u_t], dtype=jnp.int32)
     valid_mask = idx_arr >= 0
@@ -128,7 +131,7 @@ def _compute_branch_delta_submatrix_from_admittance(
     dqt_dvt = -2.0 * v_t * b_tt + v_f * (g_tf * sin_tf - b_tf * cos_tf)
     dqt_dvf = v_t * (g_tf * sin_tf - b_tf * cos_tf)
 
-    dtype = jnp.result_type(v_mag_from, v_mag_to, theta_from, theta_to, y_ff)
+    dtype_input = jnp.result_type(v_mag_from, v_mag_to, theta_from, theta_to, g_ff)
 
     delta = jnp.array(
         [
@@ -137,49 +140,41 @@ def _compute_branch_delta_submatrix_from_admittance(
             [-dqf_dthf, -dqf_dtht, -dqf_dvf, -dqf_dvt],
             [-dqt_dthf, -dqt_dtht, -dqt_dvf, -dqt_dvt],
         ],
-        dtype=dtype,
+        dtype=dtype_input,
     )
     return delta
 
 
 def _prepare_low_rank_factors_from_admittance(
     branch_idx: Int[jnp.ndarray, ""],
-    branch_from: Int[jnp.ndarray, " n_branches"],
-    branch_to: Int[jnp.ndarray, " n_branches"],
-    v_mag_hat: Float[jnp.ndarray, " n_buses"],
-    theta_hat: Float[jnp.ndarray, " n_buses"],
-    y_ff: Complex128[jnp.ndarray, " n_branches"],
-    y_ft: Complex128[jnp.ndarray, " n_branches"],
-    y_tf: Complex128[jnp.ndarray, " n_branches"],
-    y_tt: Complex128[jnp.ndarray, " n_branches"],
-    angle_component_indices: Int[jnp.ndarray, " n_buses"],
-    magnitude_component_indices: Int[jnp.ndarray, " n_buses"],
+    network_topology: NetworkTopologyInputs,
+    voltage_state: VoltageStateInputs,
+    network_admittance: NetworkAdmittanceInputs,
+    jacobian_components: JacobianComponentInputs,
 ) -> Tuple[Float[jnp.ndarray, "4 4"], Int[jnp.ndarray, "4"], jnp.ndarray]:
     """Build low-rank factors for a line outage from pi-model admittances."""
     safe_idx, valid_mask = _branch_state_indices(
         branch_idx=branch_idx,
-        branch_from=branch_from,
-        branch_to=branch_to,
-        angle_component_indices=angle_component_indices,
-        magnitude_component_indices=magnitude_component_indices,
+        network_topology=network_topology,
+        jacobian_components=jacobian_components,
     )
 
-    f = branch_from[branch_idx]
-    t = branch_to[branch_idx]
-    v_from = v_mag_hat[f]
-    v_to = v_mag_hat[t]
-    theta_from = theta_hat[f]
-    theta_to = theta_hat[t]
+    f = network_topology.branch_from[branch_idx]
+    t = network_topology.branch_to[branch_idx]
+    v_from = voltage_state.bus_voltage_magnitudes[f]
+    v_to = voltage_state.bus_voltage_magnitudes[t]
+    theta_from = voltage_state.bus_voltage_angles_rad[f]
+    theta_to = voltage_state.bus_voltage_angles_rad[t]
 
     delta_full = _compute_branch_delta_submatrix_from_admittance(
         v_mag_from=v_from,
         v_mag_to=v_to,
         theta_from=theta_from,
         theta_to=theta_to,
-        y_ff=y_ff[branch_idx],
-        y_ft=y_ft[branch_idx],
-        y_tf=y_tf[branch_idx],
-        y_tt=y_tt[branch_idx],
+        y_ff=network_admittance.y_ff[branch_idx],
+        y_ft=network_admittance.y_ft[branch_idx],
+        y_tf=network_admittance.y_tf[branch_idx],
+        y_tt=network_admittance.y_tt[branch_idx],
     )
 
     mask = valid_mask.astype(delta_full.dtype)

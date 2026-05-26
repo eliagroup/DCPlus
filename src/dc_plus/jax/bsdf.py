@@ -33,9 +33,15 @@ import jax
 import jax.numpy as jnp
 from jaxtyping import Complex128, Float, Int
 
+from ..interfaces.network_inputs import (
+    JacobianComponentInputs,
+    NetworkAdmittanceInputs,
+    NetworkTopologyInputs,
+    VoltageStateInputs,
+)
 from .low_rank_helper import _compute_branch_delta_submatrix_from_admittance
 
-# ruff: noqa: ARG001, PLR0913, PLR0915
+# ruff: noqa: ARG001, PLR0915
 
 
 def _full_rank_lodf(
@@ -63,32 +69,49 @@ def _full_rank_lodf(
     return lodf_transposed
 
 
+def _compute_shunt_delta_submatrix_from_admittance(
+    v_mag: Float[jnp.ndarray, ""],
+    y_shunt: Complex128[jnp.ndarray, ""],
+) -> Float[jnp.ndarray, "2 2"]:
+    """Return the 2x2 Jacobian contribution for a shunt admittance at one bus."""
+    conductance = jnp.real(y_shunt)
+    susceptance = jnp.imag(y_shunt)
+    dtype = jnp.result_type(v_mag, y_shunt)
+
+    delta = jnp.array(
+        [
+            [0.0, 2.0 * v_mag * conductance],
+            [0.0, -2.0 * v_mag * susceptance],
+        ],
+        dtype=dtype,
+    )
+    return delta * -1
+
+
 @jax.jit
 def _compute_bsdf_update_impl(
     jacobian_inv_transposed: Float[jnp.ndarray, " n_eq n_eq"],
     bus_to_split: int,
     new_bus_b_index: int,
     branches_connected_to_bus_b: Int[jnp.ndarray, " n_branches_B"],
-    branch_from: Int[jnp.ndarray, " n_branches"],
-    branch_to: Int[jnp.ndarray, " n_branches"],
-    v_mag_hat: Float[jnp.ndarray, " n_buses"],
-    theta_hat: Float[jnp.ndarray, " n_buses"],
-    y_ff: Complex128[jnp.ndarray, " n_branches"],
-    y_ft: Complex128[jnp.ndarray, " n_branches"],
-    y_tf: Complex128[jnp.ndarray, " n_branches"],
-    y_tt: Complex128[jnp.ndarray, " n_branches"],
-    angle_component_indices: Int[jnp.ndarray, " n_eq_jacobian"],
-    magnitude_component_indices: Int[jnp.ndarray, " n_eq_jacobian"],
+    shunt_connected_to_bus_b: Int[jnp.ndarray, " n_shunts_B"],
+    network_topology: NetworkTopologyInputs,
+    voltage_state: VoltageStateInputs,
+    network_admittance: NetworkAdmittanceInputs,
+    jacobian_components: JacobianComponentInputs,
 ) -> Float[jnp.ndarray, " n_eq n_eq"]:
-    """Legacy implementation: materialize updated inverse transpose."""
-    dtype = jacobian_inv_transposed.dtype
+    """Materialize updated inverse transpose."""
+    # get dtype -> either float32 or float64 depending on input
+    dtype_input = voltage_state.bus_voltage_magnitudes.dtype
     n_eq = jacobian_inv_transposed.shape[0]
 
-    branch_from_old = jnp.take(branch_from, branches_connected_to_bus_b, axis=0)
-    branch_to_old = jnp.take(branch_to, branches_connected_to_bus_b, axis=0)
+    branch_from_old = jnp.take(network_topology.branch_from, branches_connected_to_bus_b, axis=0)
+    branch_to_old = jnp.take(network_topology.branch_to, branches_connected_to_bus_b, axis=0)
+    shunt_bus_old = jnp.take(network_topology.shunt_to_bus, shunt_connected_to_bus_b, axis=0)
 
     branch_from_new = jnp.where(branch_from_old == bus_to_split, new_bus_b_index, branch_from_old)
     branch_to_new = jnp.where(branch_to_old == bus_to_split, new_bus_b_index, branch_to_old)
+    shunt_bus_new = jnp.where(shunt_bus_old == bus_to_split, new_bus_b_index, shunt_bus_old)
 
     base_bus_indices = jnp.array([bus_to_split, new_bus_b_index], dtype=jnp.int32)
     bus_candidates = jnp.concatenate(
@@ -98,12 +121,14 @@ def _compute_bsdf_update_impl(
             branch_to_old,
             branch_from_new,
             branch_to_new,
+            shunt_bus_old,
+            shunt_bus_new,
         ],
         axis=0,
     )
 
-    theta_candidates = jnp.take(angle_component_indices, bus_candidates, axis=0)
-    mag_candidates = jnp.take(magnitude_component_indices, bus_candidates, axis=0)
+    theta_candidates = jnp.take(jacobian_components.angle_component_indices, bus_candidates, axis=0)
+    mag_candidates = jnp.take(jacobian_components.magnitude_component_indices, bus_candidates, axis=0)
 
     comp_candidates = jnp.concatenate([theta_candidates, mag_candidates], axis=0)
     k_max = min(int(comp_candidates.shape[0]), n_eq)
@@ -131,15 +156,20 @@ def _compute_bsdf_update_impl(
         pos = jnp.where(valid, pos, -1)
         return pos, valid
 
-    theta_from_old_idx = jnp.take(angle_component_indices, branch_from_old, axis=0)
-    theta_to_old_idx = jnp.take(angle_component_indices, branch_to_old, axis=0)
-    mag_from_old_idx = jnp.take(magnitude_component_indices, branch_from_old, axis=0)
-    mag_to_old_idx = jnp.take(magnitude_component_indices, branch_to_old, axis=0)
+    theta_from_old_idx = jnp.take(jacobian_components.angle_component_indices, branch_from_old, axis=0)
+    theta_to_old_idx = jnp.take(jacobian_components.angle_component_indices, branch_to_old, axis=0)
+    mag_from_old_idx = jnp.take(jacobian_components.magnitude_component_indices, branch_from_old, axis=0)
+    mag_to_old_idx = jnp.take(jacobian_components.magnitude_component_indices, branch_to_old, axis=0)
 
-    theta_from_new_idx = jnp.take(angle_component_indices, branch_from_new, axis=0)
-    theta_to_new_idx = jnp.take(angle_component_indices, branch_to_new, axis=0)
-    mag_from_new_idx = jnp.take(magnitude_component_indices, branch_from_new, axis=0)
-    mag_to_new_idx = jnp.take(magnitude_component_indices, branch_to_new, axis=0)
+    theta_from_new_idx = jnp.take(jacobian_components.angle_component_indices, branch_from_new, axis=0)
+    theta_to_new_idx = jnp.take(jacobian_components.angle_component_indices, branch_to_new, axis=0)
+    mag_from_new_idx = jnp.take(jacobian_components.magnitude_component_indices, branch_from_new, axis=0)
+    mag_to_new_idx = jnp.take(jacobian_components.magnitude_component_indices, branch_to_new, axis=0)
+
+    theta_shunt_old_idx = jnp.take(jacobian_components.angle_component_indices, shunt_bus_old, axis=0)
+    mag_shunt_old_idx = jnp.take(jacobian_components.magnitude_component_indices, shunt_bus_old, axis=0)
+    theta_shunt_new_idx = jnp.take(jacobian_components.angle_component_indices, shunt_bus_new, axis=0)
+    mag_shunt_new_idx = jnp.take(jacobian_components.magnitude_component_indices, shunt_bus_new, axis=0)
 
     old_indices = jnp.stack(
         [
@@ -161,23 +191,42 @@ def _compute_bsdf_update_impl(
         axis=1,
     )
 
+    shunt_old_indices = jnp.stack(
+        [
+            theta_shunt_old_idx,
+            mag_shunt_old_idx,
+        ],
+        axis=1,
+    )
+
+    shunt_new_indices = jnp.stack(
+        [
+            theta_shunt_new_idx,
+            mag_shunt_new_idx,
+        ],
+        axis=1,
+    )
+
     old_pos, old_valid = _gather_positions(old_indices)
     new_pos, new_valid = _gather_positions(new_indices)
+    shunt_old_pos, shunt_old_valid = _gather_positions(shunt_old_indices)
+    shunt_new_pos, shunt_new_valid = _gather_positions(shunt_new_indices)
 
-    vm_from_old = jnp.take(v_mag_hat, branch_from_old, axis=0)
-    vm_to_old = jnp.take(v_mag_hat, branch_to_old, axis=0)
-    th_from_old = jnp.take(theta_hat, branch_from_old, axis=0)
-    th_to_old = jnp.take(theta_hat, branch_to_old, axis=0)
+    vm_from_old = jnp.take(voltage_state.bus_voltage_magnitudes, branch_from_old, axis=0)
+    vm_to_old = jnp.take(voltage_state.bus_voltage_magnitudes, branch_to_old, axis=0)
+    th_from_old = jnp.take(voltage_state.bus_voltage_angles_rad, branch_from_old, axis=0)
+    th_to_old = jnp.take(voltage_state.bus_voltage_angles_rad, branch_to_old, axis=0)
 
-    vm_from_new = jnp.take(v_mag_hat, branch_from_new, axis=0)
-    vm_to_new = jnp.take(v_mag_hat, branch_to_new, axis=0)
-    th_from_new = jnp.take(theta_hat, branch_from_new, axis=0)
-    th_to_new = jnp.take(theta_hat, branch_to_new, axis=0)
+    vm_from_new = jnp.take(voltage_state.bus_voltage_magnitudes, branch_from_new, axis=0)
+    vm_to_new = jnp.take(voltage_state.bus_voltage_magnitudes, branch_to_new, axis=0)
+    th_from_new = jnp.take(voltage_state.bus_voltage_angles_rad, branch_from_new, axis=0)
+    th_to_new = jnp.take(voltage_state.bus_voltage_angles_rad, branch_to_new, axis=0)
 
-    y_ff_sel = jnp.take(y_ff, branches_connected_to_bus_b, axis=0)
-    y_ft_sel = jnp.take(y_ft, branches_connected_to_bus_b, axis=0)
-    y_tf_sel = jnp.take(y_tf, branches_connected_to_bus_b, axis=0)
-    y_tt_sel = jnp.take(y_tt, branches_connected_to_bus_b, axis=0)
+    y_ff_sel = jnp.take(network_admittance.y_ff, branches_connected_to_bus_b, axis=0)
+    y_ft_sel = jnp.take(network_admittance.y_ft, branches_connected_to_bus_b, axis=0)
+    y_tf_sel = jnp.take(network_admittance.y_tf, branches_connected_to_bus_b, axis=0)
+    y_tt_sel = jnp.take(network_admittance.y_tt, branches_connected_to_bus_b, axis=0)
+    y_shunt_sel = jnp.take(network_admittance.y_shunt, shunt_connected_to_bus_b, axis=0)
 
     compute_delta = jax.vmap(_compute_branch_delta_submatrix_from_admittance)
     delta_old = compute_delta(
@@ -201,8 +250,18 @@ def _compute_bsdf_update_impl(
         y_tt_sel,
     )
 
+    compute_shunt_delta = jax.vmap(_compute_shunt_delta_submatrix_from_admittance)
+    delta_shunt_old = compute_shunt_delta(
+        jnp.take(voltage_state.bus_voltage_magnitudes, shunt_bus_old, axis=0),
+        y_shunt_sel,
+    )
+    delta_shunt_new = compute_shunt_delta(
+        jnp.take(voltage_state.bus_voltage_magnitudes, shunt_bus_new, axis=0),
+        y_shunt_sel,
+    )
+
     k_shape = (k_max, k_max)
-    delta_block = jnp.zeros(k_shape, dtype=dtype)
+    delta_block = jnp.zeros(k_shape, dtype=dtype_input)
 
     def _accumulate(
         delta: jnp.ndarray, pos: jnp.ndarray, valid: jnp.ndarray, weight: float, target: jnp.ndarray
@@ -212,10 +271,10 @@ def _compute_bsdf_update_impl(
         updates = delta * pair_mask.astype(delta.dtype) * weight
         row_idx = jnp.broadcast_to(safe_pos[:, :, None], pair_mask.shape)
         col_idx = jnp.broadcast_to(safe_pos[:, None, :], pair_mask.shape)
-        flat_rows = row_idx.reshape(-1)
-        flat_cols = col_idx.reshape(-1)
-        flat_updates = updates.reshape(-1)
-        flat_mask = pair_mask.reshape(-1)
+        flat_rows = row_idx
+        flat_cols = col_idx
+        flat_updates = updates
+        flat_mask = pair_mask
         safe_rows = jnp.where(flat_mask, flat_rows, 0)
         safe_cols = jnp.where(flat_mask, flat_cols, 0)
         safe_vals = jnp.where(flat_mask, flat_updates, 0.0)
@@ -223,9 +282,11 @@ def _compute_bsdf_update_impl(
 
     delta_block = _accumulate(delta_old, old_pos, old_valid, 1.0, delta_block)
     delta_block = _accumulate(delta_new, new_pos, new_valid, -1.0, delta_block)
+    delta_block = _accumulate(delta_shunt_old, shunt_old_pos, shunt_old_valid, 1.0, delta_block)
+    delta_block = _accumulate(delta_shunt_new, shunt_new_pos, shunt_new_valid, -1.0, delta_block)
 
-    theta_new_idx = angle_component_indices[new_bus_b_index]
-    mag_new_idx = magnitude_component_indices[new_bus_b_index]
+    theta_new_idx = jacobian_components.angle_component_indices[new_bus_b_index]
+    mag_new_idx = jacobian_components.magnitude_component_indices[new_bus_b_index]
 
     theta_new_pos = jnp.take(positions, jnp.where(theta_new_idx >= 0, theta_new_idx, 0), axis=0)
     mag_new_pos = jnp.take(positions, jnp.where(mag_new_idx >= 0, mag_new_idx, 0), axis=0)
@@ -236,8 +297,8 @@ def _compute_bsdf_update_impl(
     theta_row = jnp.where(theta_mask, theta_new_pos, 0)
     mag_row = jnp.where(mag_mask, mag_new_pos, 0)
 
-    minus_one = jnp.asarray(-1.0, dtype=dtype)
-    zero_val = jnp.asarray(0.0, dtype=dtype)
+    minus_one = jnp.asarray(-1.0, dtype=dtype_input)
+    zero_val = jnp.asarray(0.0, dtype=dtype_input)
     theta_update = jnp.where(theta_mask, minus_one, zero_val)
     mag_update = jnp.where(mag_mask, minus_one, zero_val)
     delta_block = delta_block.at[theta_row, theta_row].add(theta_update)
@@ -261,31 +322,22 @@ def compute_bsdf_update(
     new_bus_type: int,
     branches_connected_to_bus_b: Int[jnp.ndarray, " n_branches_B"],
     shunt_connected_to_bus_b: Int[jnp.ndarray, " n_shunts_B"],
-    branch_from: Int[jnp.ndarray, " n_branches"],
-    branch_to: Int[jnp.ndarray, " n_branches"],
-    shunt_to_bus: Int[jnp.ndarray, " n_shunts"],
-    v_mag_hat: Float[jnp.ndarray, " n_buses"],
-    theta_hat: Float[jnp.ndarray, " n_buses"],
-    y_ff: Complex128[jnp.ndarray, " n_branches"],
-    y_ft: Complex128[jnp.ndarray, " n_branches"],
-    y_tf: Complex128[jnp.ndarray, " n_branches"],
-    y_tt: Complex128[jnp.ndarray, " n_branches"],
-    y_shunt: Complex128[jnp.ndarray, " n_buses"],
-    angle_component_indices: Int[jnp.ndarray, " n_eq_jacobian"],
-    magnitude_component_indices: Int[jnp.ndarray, " n_eq_jacobian"],
+    network_topology: NetworkTopologyInputs,
+    voltage_state: VoltageStateInputs,
+    network_admittance: NetworkAdmittanceInputs,
+    jacobian_components: JacobianComponentInputs,
 ) -> Float[jnp.ndarray, " n_eq n_eq"]:
-    """Legacy dense inverse transpose update for BSDF.
+    """Inverse transpose update for BSDF.
 
     This function computes the updated Jacobian inverse transpose after a bus split
     with branch re-attachments, using a full-rank update approach.
     It is intended for reference and testing purposes, and is not optimized for performance.
 
     Note: currently not supported:
-        - Shunt reassignments
         - Changes in branch parameters (e.g., series admittance, taps, phase shifts)
           (This would involve computing the different delta_blocks)
         - Changes in the type of the new bus (e.g., PQ, PV, slack)
-        - injection reassignments
+        - Injection reassignments of regulating elements, resulting in a new PV bus
 
     Parameters
     ----------
@@ -301,52 +353,32 @@ def compute_bsdf_update(
         Indices of branches connected to the bus being split.
     shunt_connected_to_bus_b : Int[jnp.ndarray, " n_shunts_B"]
         Indices of shunts connected to the bus being split.
-    branch_from : Int[jnp.ndarray, " n_branches"]
-        "From" bus indices for all branches.
-    branch_to : Int[jnp.ndarray, " n_branches"]
-        "To" bus indices for all branches.
-    shunt_to_bus : Int[jnp.ndarray, " n_shunts"]
-        Bus indices for all shunts.
-    v_mag_hat : Float[jnp.ndarray, " n_buses"]
-        Voltage magnitude estimates for all buses.
-    theta_hat : Float[jnp.ndarray, " n_buses"]
-        Voltage angle estimates for all buses.
-    y_ff : Complex128[jnp.ndarray, " n_branches"]
-        "From-From" admittance for all branches.
-    y_ft : Complex128[jnp.ndarray, " n_branches"]
-        "From-To" admittance for all branches.
-    y_tf : Complex128[jnp.ndarray, " n_branches"]
-        "To-From" admittance for all branches.
-    y_tt : Complex128[jnp.ndarray, " n_branches"]
-        "To-To" admittance for all branches.
-    y_shunt : Complex128[jnp.ndarray, " n_buses"]
-        Shunt admittance for all buses.
-    angle_component_indices : Int[jnp.ndarray, " n_eq_jacobian"]
-        Mapping from bus indices to angle component indices in the Jacobian.
-    magnitude_component_indices : Int[jnp.ndarray, " n_eq_jacobian"]
-        Mapping from bus indices to magnitude component indices in the Jacobian.
+    network_topology : NetworkTopologyInputs
+        Network topology inputs providing `branch_from`, `branch_to`, `branch_connected`,
+        `shunt_to_bus`, and `shunt_connected` arrays used to select affected branches and shunts.
+    voltage_state : VoltageStateInputs
+        Voltage state inputs providing `bus_voltage_magnitudes` and `bus_voltage_angles_rad`
+        used to compute delta blocks for old and new attachments.
+    network_admittance : NetworkAdmittanceInputs
+        Network admittance inputs (`y_ff`, `y_ft`, `y_tf`, `y_tt`, `y_shunt`) used to
+        compute branch and shunt Jacobian contributions.
+    jacobian_components : JacobianComponentInputs
+        Component index mappings (`angle_component_indices`, `magnitude_component_indices`)
+        that map bus indices to Jacobian equation row indices.
 
     Returns
     -------
     Float[jnp.ndarray, " n_eq n_eq"]
         Updated Jacobian inverse transpose after the bus split and branch re-attachments.
     """
-    jacobian_arr_transposed = jnp.asarray(jacobian_inv_transposed)
-    real_dtype = jacobian_arr_transposed.dtype
-
     return _compute_bsdf_update_impl(
-        jacobian_inv_transposed=jacobian_arr_transposed,
+        jacobian_inv_transposed=jacobian_inv_transposed,
         bus_to_split=int(bus_to_split),
         new_bus_b_index=int(new_bus_b_index),
-        branches_connected_to_bus_b=jnp.asarray(branches_connected_to_bus_b, dtype=jnp.int32),
-        branch_from=jnp.asarray(branch_from, dtype=jnp.int32),
-        branch_to=jnp.asarray(branch_to, dtype=jnp.int32),
-        v_mag_hat=jnp.asarray(v_mag_hat, dtype=real_dtype),
-        theta_hat=jnp.asarray(theta_hat, dtype=real_dtype),
-        y_ff=jnp.asarray(y_ff, dtype=jnp.complex128),
-        y_ft=jnp.asarray(y_ft, dtype=jnp.complex128),
-        y_tf=jnp.asarray(y_tf, dtype=jnp.complex128),
-        y_tt=jnp.asarray(y_tt, dtype=jnp.complex128),
-        angle_component_indices=jnp.asarray(angle_component_indices, dtype=jnp.int32),
-        magnitude_component_indices=jnp.asarray(magnitude_component_indices, dtype=jnp.int32),
+        branches_connected_to_bus_b=branches_connected_to_bus_b,
+        shunt_connected_to_bus_b=shunt_connected_to_bus_b,
+        network_topology=network_topology,
+        voltage_state=voltage_state,
+        network_admittance=network_admittance,
+        jacobian_components=jacobian_components,
     )

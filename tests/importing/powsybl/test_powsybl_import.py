@@ -5,10 +5,12 @@
 # you can obtain one at https://mozilla.org/MPL/2.0/.
 # Mozilla Public License, version 2.0
 
+import py
 import numpy as np
 import pandas as pd
 import pandas.testing as pdt
 import pypowsybl
+import pytest
 
 from dc_plus.example_grids.pypowsbl.example_grids import create_complex_grid_battery_hvdc_svc_3w_trafo
 from dc_plus.importing.import_helpers import _remove_isolated_buses_injections
@@ -18,13 +20,17 @@ from dc_plus.importing.import_schema import (
     InjectionParamSchema,
     LimitParamSchema,
     ShuntParamSchema,
+    TapChangerParamSchema,
+    TapPositionParamSchema,
 )
+from dc_plus.importing.powsybl.powsybl_loadflow_parameter import get_powsybl_loadflow_parameter
 from dc_plus.importing.powsybl.powsybl_import import (
     _get_battery,
     _get_branches_parameter_powsybl,
     _get_buses_powsybl,
     _get_dangling_bus_ids,
     _get_dangling_line_generators,
+    _get_effective_q_limited_bus_ids,
     _get_generators,
     _get_grid_island_ids,
     _get_hvdc_lcc,
@@ -37,7 +43,13 @@ from dc_plus.importing.powsybl.powsybl_import import (
     _get_static_var_compensators,
     _get_tie_line_parameter,
     _get_trafo_parameter,
+    _get_tap_steps_parameter_powsybl,
+    _get_tap_changer_parameter_powsybl,
 )
+from dc_plus.importing.powsybl.powsybl_import_helpers import select_a_generator_as_slack_and_run_loadflow
+from dc_plus.preprocess.create_network_data import create_network_data_pypowsybl
+
+from dc_plus.interfaces.network_information import BusType
 
 
 def test_get_tie_line_parameter():
@@ -84,6 +96,61 @@ def test_get_trafo_parameter():
     trafos = _get_trafo_parameter(net)
     BranchParamSchema.validate(trafos)
     assert len(trafos) == 0
+
+
+def test_get_tap_steps_parameter_powsybl(micro_grid_be_network_with_replaced_transformers: pypowsybl.network.Network):
+    net = micro_grid_be_network_with_replaced_transformers
+    ratio_tap_changer_steps = _get_tap_steps_parameter_powsybl(net.get_ratio_tap_changer_steps())
+    assert len(TapPositionParamSchema.validate(ratio_tap_changer_steps)) != 0
+    phase_tap_changer_steps = _get_tap_steps_parameter_powsybl(net.get_phase_tap_changer_steps())
+    assert len(TapPositionParamSchema.validate(phase_tap_changer_steps)) != 0
+
+
+def test_get_tap_changer_parameter_powsybl(micro_grid_be_network_with_replaced_transformers: pypowsybl.network.Network):
+    net = micro_grid_be_network_with_replaced_transformers
+    tap_changers = net.get_phase_tap_changers()
+    transformers = net.get_2_windings_transformers(attributes=["r", "x", "g", "b"])
+    phase_changer_params = _get_tap_changer_parameter_powsybl(tap_changers=tap_changers, transformers=transformers)
+    assert len(TapChangerParamSchema.validate(phase_changer_params)) != 0
+    ratio_changers = net.get_ratio_tap_changers()
+    ratio_changers_params = _get_tap_changer_parameter_powsybl(tap_changers=ratio_changers, transformers=transformers)
+    assert len(TapChangerParamSchema.validate(ratio_changers_params)) != 0
+
+
+def test_create_network_data_populates_transformer_tap_information(
+    micro_grid_be_network_with_replaced_transformers: pypowsybl.network.Network,
+):
+    net = micro_grid_be_network_with_replaced_transformers
+    network_info = create_network_data_pypowsybl(net)
+    static_info = network_info.static_network_data
+    dynamic_info = network_info.dynamic_network_data
+    string_info = network_info.string_network_data
+
+    branch_index_by_id = {str(branch_id): idx for idx, branch_id in enumerate(string_info.branch_ids)}
+    ratio_taps = net.get_ratio_tap_changers()["tap"].to_dict()
+    phase_taps = net.get_phase_tap_changers()["tap"].to_dict()
+
+    expected_ratio_indices = {branch_index_by_id[str(branch_id)] for branch_id in ratio_taps}
+    expected_phase_indices = {branch_index_by_id[str(branch_id)] for branch_id in phase_taps}
+
+    assert set(np.flatnonzero(static_info.has_ratio_changing_transformer)) == expected_ratio_indices
+    assert set(np.flatnonzero(static_info.has_phase_shifting_transformer)) == expected_phase_indices
+    assert set(static_info.ratio_shift_info) == expected_ratio_indices
+    assert set(static_info.phase_shift_info) == expected_phase_indices
+
+    for branch_idx, branch_id in enumerate(string_info.branch_ids):
+        expected_ratio_tap = int(ratio_taps.get(str(branch_id), 0))
+        expected_phase_tap = int(phase_taps.get(str(branch_id), 0))
+        assert dynamic_info.branch_ratio_tap_positions[branch_idx] == expected_ratio_tap
+        assert dynamic_info.branch_phase_tap_positions[branch_idx] == expected_phase_tap
+
+    for tap_info in static_info.ratio_shift_info.values():
+        assert tap_info.n_max_tap_positions > 0
+        assert tap_info.tap_offset_shift_ratio_rho.shape == (tap_info.n_max_tap_positions,)
+
+    for tap_info in static_info.phase_shift_info.values():
+        assert tap_info.n_max_tap_positions > 0
+        assert tap_info.tap_offset_shift_angle.shape == (tap_info.n_max_tap_positions,)
 
 
 def test_get_branches_parameter():
@@ -188,17 +255,34 @@ def test_get_buses():
     net = create_complex_grid_battery_hvdc_svc_3w_trafo()
     injections = _get_injections_powsybl(net)
     slack_id = net.get_extensions("slackTerminal")["bus_id"].values[0]
-    buses = _get_buses_powsybl(net=net, slack_id=slack_id, injections=injections)
+    buses = _get_buses_powsybl(net=net, slack_id=slack_id, injections=injections, reference_id=slack_id)
     BusParamSchema.validate(buses)
     bus_powsybl = net.get_buses(attributes=[])
     dangling_count = len(_get_dangling_bus_ids(net))
     assert len(bus_powsybl) + dangling_count == len(buses)
-    assert 0 in list(buses["bus_type"].values)  # slack bus
-    assert 1 in list(buses["bus_type"].values)  # PV bus
-    assert 2 in list(buses["bus_type"].values)  # PQ bus
-    assert np.sum(buses["bus_type"] == 0) == 1  # only one slack bus
-    assert np.sum(buses["bus_type"] == 1) == 2  # there are two PV buses
-    assert np.sum(buses["bus_type"] == 2) >= 1  # at least one PQ bus
+    assert BusType.SLACK in list(buses["bus_type"].values)  # slack bus
+    assert BusType.PV in list(buses["bus_type"].values)  # PV bus
+    assert BusType.PQ in list(buses["bus_type"].values)  # PQ bus
+    assert np.sum(buses["bus_type"] == BusType.SLACK) == 1  # only one slack bus
+    assert np.sum(buses["is_angle_reference"]) == 1  # only one reference bus
+    assert np.sum(buses["bus_type"] == BusType.PV) == 2  # there are two PV buses
+    assert np.sum(buses["bus_type"] == BusType.PQ) >= 1  # at least one PQ bus
+
+
+def test_get_buses_invalid_reference_falls_back_to_slack():
+    net = create_complex_grid_battery_hvdc_svc_3w_trafo()
+    injections = _get_injections_powsybl(net)
+    slack_id = net.get_extensions("slackTerminal")["bus_id"].values[0]
+
+    buses = _get_buses_powsybl(
+        net=net,
+        slack_id=slack_id,
+        injections=injections,
+        reference_id="not-a-bus-id",
+    )
+
+    assert np.sum(buses["is_angle_reference"]) == 1
+    assert buses.loc[buses["is_angle_reference"], "id_str"].tolist() == [slack_id]
 
 
 def test_no_synchronous_components_returns_connected_ids():

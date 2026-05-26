@@ -21,7 +21,8 @@ from dc_plus.preprocess.preprocess_jacobian_bsdf import preprocess_jacobian_bsdf
 def test_preprocess_jacobian_bsdf():
     get_net = basic_node_breaker_network_powsybl
 
-    net, static_info, dynamic_info, string_info, jacobian_data = _load_test_grid(get_net)
+    net, network_info, jacobian_data = _load_test_grid(get_net)
+    dynamic_info = network_info.dynamic_network_data
     splits = 2
     original_jacobian = jacobian_data.jacobian.toarray()
     original_inverse = jacobian_data.inverse_jacobian.copy()
@@ -102,6 +103,7 @@ def test_preprocess_jacobian_bsdf():
     np.testing.assert_allclose(extended_dynamic_info.bus_voltage_angles_rad[-splits:], 0.0)
     np.testing.assert_allclose(extended_dynamic_info.bus_active_power[-splits:], 0.0)
     np.testing.assert_allclose(extended_dynamic_info.bus_reactive_power[-splits:], 0.0)
+    np.testing.assert_allclose(extended_dynamic_info.bus_voltage_magnitude_setpoint[-splits:], 1.0)
 
     # Ensure original structures remain unchanged
     assert dynamic_info.n_buses == n_buses_original
