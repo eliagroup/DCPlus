@@ -258,7 +258,7 @@ def _get_tie_line_parameter(net: Network) -> BranchParamSchema:
     tie_lines = net.get_tie_lines()
     if tie_lines.empty:
         return _empty_schema_dataframe(BranchParamSchema)
-    available_attributes = ["name", "connected", "r", "x", "g", "b", "p", "q", "i", "bus_id"]
+    available_attributes = ["name", "r", "x", "g", "b", "p", "q", "i", "bus_id"]
     dangling_lines = net.get_dangling_lines(attributes=available_attributes)
     tie_lines = tie_lines.merge(dangling_lines, how="left", left_on=["dangling_line1_id"], right_index=True)
     tie_lines = tie_lines.merge(
