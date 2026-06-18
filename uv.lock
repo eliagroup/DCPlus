@@ -398,7 +398,7 @@ requires-dist = [
     { name = "jax", specifier = ">=0.10.1" },
     { name = "jax-dataclasses", specifier = ">=1.6.2,<2.0.0" },
     { name = "matplotlib", specifier = ">=3.10.9" },
-    { name = "numpydantic", specifier = ">=1.6.4,<2.0.0" },
+    { name = "numpydantic", specifier = ">=1.9.0,<2.0.0" },
     { name = "pandapower", specifier = ">=3.0.0,<4.0.0" },
     { name = "pandapower", marker = "extra == 'pandapower'", specifier = ">=3.0.0" },
     { name = "pydantic", specifier = ">=2.13.4,<3.0.0" },
@@ -1582,15 +1582,15 @@ wheels = [
 
 [[package]]
 name = "numpydantic"
-version = "1.8.1"
+version = "1.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/53/28/fb2fa636e777d3a0636697b59e0c3310dbfa5a4126ba3515bb0848e20032/numpydantic-1.8.1.tar.gz", hash = "sha256:e5192efee5784df5cb70f99937e3538fdcbe58ed445c53935f39e5ab2b3f8ea6", size = 82121, upload-time = "2026-04-14T00:01:18.931Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c2/84/9aaa4525e01fb3c97ba39afad2ca94921a65cae4a8d3bdc3c67edd47e081/numpydantic-1.9.0.tar.gz", hash = "sha256:8535fda0f7ddf6434c9ffc15a6f5c07cd2899074fc08cbc64e4b219eb8c708a7", size = 96319, upload-time = "2026-06-06T07:28:28.17Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/99/e1/9af63cd9a101ac1c1362200705fb3fa5aabe80a5d63674d0253b18a1072b/numpydantic-1.8.1-py3-none-any.whl", hash = "sha256:f3170b44cdcb168d3799eccbbbe8993f146e90211db9d9903f62b56006e8baca", size = 87926, upload-time = "2026-04-14T00:01:17.388Z" },
+    { url = "https://files.pythonhosted.org/packages/de/f2/7af54b42b69afaa14ec339723f143cff1a9efc5074bea2719b240dacdc4c/numpydantic-1.9.0-py3-none-any.whl", hash = "sha256:fb5348cdad9b61f142f7b4ad09fd17def738bd85f00c306916277ad0c7685f2d", size = 100819, upload-time = "2026-06-06T07:28:26.938Z" },
 ]
 
 [[package]]
