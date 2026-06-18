@@ -75,7 +75,7 @@ dev = [
     "ipykernel>=6.25.2",
     "jupyter>=1.0.0",
     "ruff",
-    "nbclient>=0.10.4",
+    "nbclient>=0.11.0",
     "jaxtyping",
 ]
 doc = [
