@@ -8,20 +8,34 @@
 """Import data from powsybl network."""
 
 import logging
+from enum import StrEnum
 
 import numpy as np
 import pandas as pd
 from pypowsybl.network import Network
 
+from dc_plus.importing.import_helpers import _empty_schema_dataframe
 from dc_plus.importing.import_schema import (
     BranchParamSchema,
     BusParamSchema,
     InjectionParamSchema,
     LimitParamSchema,
     ShuntParamSchema,
+    TapChangerParamSchema,
+    TapPositionParamSchema,
 )
 
 logger = logging.getLogger(__name__)
+
+
+class PowsyblSide(StrEnum):
+    """Enum for "side" in Powsybl."""
+
+    NONE = ""
+    ONE = "ONE"
+    TWO = "TWO"
+    THREE = "THREE"
+
 
 DANGLING_BUS_STRING_SUFFIX = "_dangling_bus"
 
@@ -49,7 +63,7 @@ def _get_unpaired_dangling_lines(net: Network) -> pd.DataFrame:
     return dangling_lines
 
 
-def _get_branches_id_int(net: Network) -> pd.Series:
+def _get_branches_id_int(net: Network) -> pd.DataFrame:
     """Get the branches id_int of the network.
 
     Gets the branches id_int from the network.
@@ -62,7 +76,7 @@ def _get_branches_id_int(net: Network) -> pd.Series:
 
     Returns
     -------
-    pd.Series
+    pd.DataFrame
         The branches id_int of the network.
     """
     branches = net.get_branches(attributes=[])
@@ -95,7 +109,7 @@ def _get_dangling_bus_ids(net: Network) -> pd.DataFrame:
     return dangling_lines
 
 
-def _get_bus_ids_with_dangling_buses(net: Network) -> pd.Series:
+def _get_bus_ids_with_dangling_buses(net: Network) -> pd.DataFrame:
     """Get the bus ids including dangling buses of the network.
 
     Gets the bus ids including dangling buses from the network.
@@ -108,7 +122,7 @@ def _get_bus_ids_with_dangling_buses(net: Network) -> pd.Series:
 
     Returns
     -------
-    pd.Series
+    pd.DataFrame
         The bus ids including dangling buses of the network.
     """
     bus = net.get_buses(attributes=[])
@@ -199,9 +213,7 @@ def _get_tie_line_parameter(net: Network) -> BranchParamSchema:
     """
     tie_lines = net.get_tie_lines()
     if tie_lines.empty:
-        tie_lines = pd.DataFrame(columns=list(BranchParamSchema.__annotations__.keys()))
-        tie_lines = BranchParamSchema.validate(tie_lines)
-        return tie_lines
+        return _empty_schema_dataframe(BranchParamSchema)
     available_attributes = ["name", "connected", "r", "x", "g", "b", "p", "q", "i", "bus_id"]
     dangling_lines = net.get_dangling_lines(attributes=available_attributes)
     tie_lines = tie_lines.merge(dangling_lines, how="left", left_on=["dangling_line1_id"], right_index=True)
@@ -283,9 +295,7 @@ def _get_dangling_line_branch_parameter(net: Network) -> BranchParamSchema:
         dangling_lines = dangling_lines[~dangling_lines["paired"]]
         dangling_lines.drop(columns=["paired"], inplace=True)
     if dangling_lines.empty:
-        dangling_lines = pd.DataFrame(columns=list(BranchParamSchema.__annotations__.keys()))
-        dangling_lines = BranchParamSchema.validate(dangling_lines)
-        return dangling_lines
+        return _empty_schema_dataframe(BranchParamSchema)
     dangling_lines.rename(columns={"bus_id": "bus1_id"}, inplace=True)
     dangling_lines["bus2_id"] = _get_dangling_bus_ids(net)["dangling_bus_id"].values
     dangling_lines = _get_branches_with_bus_index(net, dangling_lines)
@@ -355,9 +365,7 @@ def _get_line_parameter(net: Network) -> BranchParamSchema:
     ]
     lines = net.get_lines(attributes=available_attributes)
     if lines.empty:
-        lines = pd.DataFrame(columns=list(BranchParamSchema.__annotations__.keys()))
-        lines = BranchParamSchema.validate(lines)
-        return lines
+        return _empty_schema_dataframe(BranchParamSchema)
     lines["connected"] = lines["connected1"] & lines["connected2"]
     lines.drop(columns=["connected1", "connected2"], inplace=True)
 
@@ -377,7 +385,10 @@ def _get_line_parameter(net: Network) -> BranchParamSchema:
     return lines
 
 
-def _get_trafo_parameter(net: Network, split_trafo_charging: bool = True) -> BranchParamSchema:
+def _get_trafo_parameter(
+    net: Network,
+    split_trafo_charging: bool = True,
+) -> BranchParamSchema:
     """Get the transformer parameters of the network.
 
     Gets the transformer parameters from the network.
@@ -416,9 +427,7 @@ def _get_trafo_parameter(net: Network, split_trafo_charging: bool = True) -> Bra
     ]
     transformers = net.get_2_windings_transformers(attributes=available_attributes)
     if transformers.empty:
-        transformers = pd.DataFrame(columns=list(BranchParamSchema.__annotations__.keys()))
-        transformers = BranchParamSchema.validate(transformers)
-        return transformers
+        return _empty_schema_dataframe(BranchParamSchema)
 
     transformers.rename(
         columns={
@@ -465,7 +474,10 @@ def _get_trafo_parameter(net: Network, split_trafo_charging: bool = True) -> Bra
     return transformers
 
 
-def _get_branches_parameter_powsybl(net: Network, split_trafo_charging: bool = True) -> BranchParamSchema:
+def _get_branches_parameter_powsybl(
+    net: Network,
+    split_trafo_charging: bool = True,
+) -> BranchParamSchema:
     """Get the branches parameters of the network.
 
     Gets the branches parameters from the network.
@@ -526,10 +538,117 @@ def _get_limits_parameter_powsybl(net: Network) -> LimitParamSchema:
     return operational_limits
 
 
+def _get_tap_steps_parameter_powsybl(tap_steps: pd.DataFrame) -> TapPositionParamSchema:
+    """Get the tap steps parameters of the network.
+
+    Parameters
+    ----------
+    tap_steps : pd.DataFrame
+        The tap steps of the network.
+        expected columns: ["side", "rho", "r", "x", "g", "b"]
+        expected multi index: "id", "position"
+        either: network.get_ratio_tap_changer_steps() or network.get_phase_tap_changer_steps()
+
+    Returns
+    -------
+    TapPositionParamSchema
+        The tap steps parameters of the network.
+    """
+    if tap_steps.empty:
+        return _empty_schema_dataframe(TapPositionParamSchema)
+    tap_steps.reset_index(drop=False, inplace=True)
+    tap_steps.rename(columns={"id": "id_str", "rho": "offset_rho", "r": "offset_r", "x": "offset_x"}, inplace=True)
+    # set none to powsybl default -> side two
+    tap_steps.loc[tap_steps["side"] == PowsyblSide.NONE, "side"] = PowsyblSide.TWO.value
+    assert set(tap_steps["side"].unique()) <= {PowsyblSide.ONE.value, PowsyblSide.TWO.value}
+
+    # init g1, b1, g2, b2 to 0.0
+    tap_steps["offset_g1"] = 0.0
+    tap_steps["offset_b1"] = 0.0
+    tap_steps["offset_g2"] = 0.0
+    tap_steps["offset_b2"] = 0.0
+
+    # init alpha if missing
+    if "alpha" not in tap_steps.columns:
+        tap_steps["offset_alpha"] = 0.0
+    else:
+        tap_steps.rename(columns={"alpha": "offset_alpha"}, inplace=True)
+
+    # set g1, b1, g2, b2 to according side
+    cond_side_one = tap_steps["side"] == PowsyblSide.ONE.value
+    tap_steps.loc[cond_side_one, "offset_g1"] = tap_steps.loc[cond_side_one, "g"]
+    tap_steps.loc[cond_side_one, "offset_b1"] = tap_steps.loc[cond_side_one, "b"]
+    tap_steps.loc[~cond_side_one, "offset_g2"] = tap_steps.loc[~cond_side_one, "g"]
+    tap_steps.loc[~cond_side_one, "offset_b2"] = tap_steps.loc[~cond_side_one, "b"]
+
+    # drop g an b columns
+    tap_steps = tap_steps.drop(columns=["g", "b", "side"])
+    tap_steps = TapPositionParamSchema.validate(tap_steps)
+    return tap_steps
+
+
+def _get_tap_changer_parameter_powsybl(
+    tap_changers: pd.DataFrame,
+    transformers: pd.DataFrame,
+    split_trafo_charging: bool = True,
+) -> TapChangerParamSchema:
+    """Get the tap changer parameters of the network.
+
+    Parameters
+    ----------
+    tap_changers : pd.DataFrame
+        The tap changers of the network.
+        expected columns: ["id", "tap", "low_tap", "high_tap", "step_count", "side"]
+        expected index: "id" (transformer id)
+    transformers : pd.DataFrame
+        The transformers of the network.
+        expected columns: ["r", "x", "g", "b"]
+        expected index: "id" (transformer id)
+    split_trafo_charging : bool
+        Whether to split the transformer charging admittance into the series and shunt admittance.
+        Powsybl default is False, DCplus uses True.
+
+    Returns
+    -------
+    TapChangerParamSchema
+        The tap changer parameters of the network.
+    """
+    if tap_changers.empty:
+        return _empty_schema_dataframe(TapChangerParamSchema)
+    transformers = transformers[["r", "x", "g", "b"]]
+    transformers.rename(columns={"r": "neutral_r", "x": "neutral_x", "g": "neutral_g2", "b": "neutral_b2"}, inplace=True)
+    if split_trafo_charging:
+        # split the transformer charging admittance into the series and shunt admittance
+        # DCplus uses the split Pi model
+        # g2, b2 -> shunt admittance on the to side
+        # g1, b1 -> shunt admittance on the from side
+        # series admittance is 0
+        transformers["neutral_g1"] = transformers["neutral_g2"] / 2
+        transformers["neutral_b1"] = transformers["neutral_b2"] / 2
+        transformers["neutral_g2"] = transformers["neutral_g2"] / 2
+        transformers["neutral_b2"] = transformers["neutral_b2"] / 2
+    else:
+        # vanilla powsybl implementation
+        # set the from side shunt admittance to 0
+        transformers["neutral_g1"] = 0.0
+        transformers["neutral_b1"] = 0.0
+
+    tap_changers = tap_changers[["tap", "low_tap", "high_tap", "step_count", "side"]]
+    tap_changers.rename(
+        columns={"tap": "current_tap_pos", "low_tap": "min_tap_pos", "high_tap": "max_tap_pos"}, inplace=True
+    )
+    tap_changers = tap_changers.merge(transformers, how="left", left_on=["id"], right_index=True)
+
+    tap_changers["id_str"] = tap_changers.index
+
+    tap_changers = TapChangerParamSchema.validate(tap_changers)
+    return tap_changers
+
+
 # ################ Injections ########################
 
 
-def _get_injection_id_int(net: Network) -> pd.Series:
+def _get_injection_id_int(net: Network) -> pd.DataFrame:
     """Get the injection id_int of the network.
 
     Gets the injection id_int from the network.
@@ -541,7 +660,7 @@ def _get_injection_id_int(net: Network) -> pd.Series:
 
     Returns
     -------
-    pd.Series
+    pd.DataFrame
         The injection id_int of the network.
     """
     injections = net.get_injections(attributes=[])
@@ -553,6 +672,18 @@ def _get_injection_id_int(net: Network) -> pd.Series:
 
 
 def _get_dangling_line_generators(net: Network) -> pd.DataFrame:
+    """Convert unpaired dangling lines into equivalent injection rows.
+
+    Parameters
+    ----------
+    net : Network
+        The powsybl network.
+
+    Returns
+    -------
+    pd.DataFrame
+        Injection-style rows representing dangling line boundary injections.
+    """
     available_attributes = ["p0", "q0", "i", "connected", "paired"]
     dangling_lines = net.get_dangling_lines(attributes=available_attributes)
     # get all non-paired dangling lines -> model as injections
@@ -584,7 +715,18 @@ def _get_dangling_line_generators(net: Network) -> pd.DataFrame:
 
 
 def _get_generators(net: Network) -> pd.DataFrame:
-    """Get all generators that are connected to a node in _get_nodes()"""
+    """Extract generator injections from a powsybl network.
+
+    Parameters
+    ----------
+    net : Network
+        The powsybl network.
+
+    Returns
+    -------
+    pd.DataFrame
+        Generator injections in the standardized import schema.
+    """
     available_attributes = [
         "target_p",
         "target_q",
@@ -622,7 +764,18 @@ def _get_generators(net: Network) -> pd.DataFrame:
 
 
 def _get_battery(net: Network) -> pd.DataFrame:
-    """Get all batteries that are connected to a node in _get_nodes()"""
+    """Extract battery injections from a powsybl network.
+
+    Parameters
+    ----------
+    net : Network
+        The powsybl network.
+
+    Returns
+    -------
+    pd.DataFrame
+        Battery injections in the standardized import schema.
+    """
     available_attributes = [
         "target_p",
         "target_q",
@@ -656,7 +809,18 @@ def _get_battery(net: Network) -> pd.DataFrame:
 
 
 def _get_hvdc_lcc(net: Network) -> pd.DataFrame:
-    """Get all lcc converter stations that are connected to a node in _get_nodes()"""
+    """Extract LCC HVDC converter station injections.
+
+    Parameters
+    ----------
+    net : Network
+        The powsybl network.
+
+    Returns
+    -------
+    pd.DataFrame
+        LCC converter stations represented as standardized injections.
+    """
     available_attributes = [
         "p",
         "q",
@@ -689,7 +853,18 @@ def _get_hvdc_lcc(net: Network) -> pd.DataFrame:
 
 
 def _get_hvdc_vsc(net: Network) -> pd.DataFrame:
-    """Get all vsc converter stations that are connected to a node in _get_nodes()"""
+    """Extract VSC HVDC converter station injections.
+
+    Parameters
+    ----------
+    net : Network
+        The powsybl network.
+
+    Returns
+    -------
+    pd.DataFrame
+        VSC converter stations represented as standardized injections.
+    """
     # TODO: not sure if correct implemented
     available_attributes = [
         "target_q",
@@ -731,7 +906,18 @@ def _get_hvdc_vsc(net: Network) -> pd.DataFrame:
 
 
 def _get_loads(net: Network) -> pd.DataFrame:
-    """Get all loads that are connected to a node in _get_nodes()"""
+    """Extract load injections from a powsybl network.
+
+    Parameters
+    ----------
+    net : Network
+        The powsybl network.
+
+    Returns
+    -------
+    pd.DataFrame
+        Load injections in the standardized import schema.
+    """
     available_attributes = [
         "p0",
         "q0",
@@ -764,7 +950,18 @@ def _get_loads(net: Network) -> pd.DataFrame:
 
 
 def _get_static_var_compensators(net: Network) -> pd.DataFrame:
-    """Get all static var compensators that are connected to a node in _get_nodes()"""
+    """Extract static var compensators as standardized injections.
+
+    Parameters
+    ----------
+    net : Network
+        The powsybl network.
+
+    Returns
+    -------
+    pd.DataFrame
+        Static var compensators represented as standardized injections.
+    """
     available_attributes = [
         "target_q",
         "p",
@@ -805,8 +1002,19 @@ def _get_static_var_compensators(net: Network) -> pd.DataFrame:
     return svc
 
 
-def _get_injections_powsybl(net: Network) -> pd.DataFrame:
-    """Merge information from generators, loads and dangling lines into the injections dataframe."""
+def _get_injections_powsybl(net: Network) -> InjectionParamSchema:
+    """Merge all supported powsybl injections into one standardized table.
+
+    Parameters
+    ----------
+    net : Network
+        The powsybl network.
+
+    Returns
+    -------
+    pd.DataFrame
+        Combined injection table covering generators, loads, converters and compensators.
+    """
     injections = pd.concat(
         [
             _get_generators(net),
@@ -857,9 +1065,7 @@ def _get_shunts_powsybl(net: Network) -> ShuntParamSchema:
     ]
     shunts = net.get_shunt_compensators(attributes=available_attributes)
     if shunts.empty:
-        shunts = pd.DataFrame(columns=list(ShuntParamSchema.__annotations__.keys()))
-        shunts = ShuntParamSchema.validate(shunts)
-        return shunts
+        return _empty_schema_dataframe(ShuntParamSchema)
     shunts.reset_index(drop=False, inplace=True)
     shunts.rename(columns={"id": "id_str"}, inplace=True)
     injection_id_int = _get_injection_id_int(net)
@@ -917,7 +1123,11 @@ def _get_dangling_buses(net: Network) -> BusParamSchema:
     return dangling_buses
 
 
-def _get_buses_powsybl(net: Network, slack_id: str, injections: InjectionParamSchema) -> BusParamSchema:
+def _get_buses_powsybl(
+    net: Network,
+    slack_id: str,
+    injections: InjectionParamSchema,
+) -> BusParamSchema:
     """Get the bus parameters of the network.
 
     Gets the bus parameters from the network.

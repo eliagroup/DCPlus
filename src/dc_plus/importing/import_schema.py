@@ -5,7 +5,7 @@
 # you can obtain one at https://mozilla.org/MPL/2.0/.
 # Mozilla Public License, version 2.0
 
-"""Import data from powsybl network."""
+"""Schemas for imported network data before preprocessing into solver structures."""
 
 import logging
 
@@ -135,6 +135,76 @@ class LimitParamSchema(pa.DataFrameModel):
     side: pat.Series[str] = pa.Field(coerce=True)
     name: pat.Series[str] = pa.Field(coerce=True)
     value: pat.Series[float] = pa.Field(coerce=True)
+
+    class Config:
+        """Define Pandera class config."""
+
+        strict = True
+
+
+class TapChangerParamSchema(pa.DataFrameModel):
+    """Tap changer parameter needed for the DC+ network model."""
+
+    id_str: pat.Series[str] = pa.Field(coerce=True, description="Corresponding element ID, e.g. a branch_id_str.")
+    min_tap_pos: pat.Series[int] = pa.Field(
+        coerce=True, description="The minimum tap position of the tap changer, must be found in to TapPositionParamSchema."
+    )
+    max_tap_pos: pat.Series[int] = pa.Field(
+        coerce=True, description="The maximum tap position of the tap changer, must be found in to TapPositionParamSchema."
+    )
+    current_tap_pos: pat.Series[int] = pa.Field(
+        coerce=True, description="The current tap position of the tap changer, must be found in to TapPositionParamSchema."
+    )
+    step_count: pat.Series[int] = pa.Field(coerce=True, description="The number of steps of the tap changer.")
+    side: pat.Series[str] = pa.Field(
+        coerce=True, description="The side of the tap changer, must be same as in TapPositionParamSchema."
+    )
+    neutral_r: pat.Series[float] = pa.Field(coerce=True, description="The resistance at the neutral tap position.")
+    neutral_x: pat.Series[float] = pa.Field(coerce=True, description="The reactance at the neutral tap position.")
+    neutral_g1: pat.Series[float] = pa.Field(
+        coerce=True, description="The conductance at the from side of the neutral tap position."
+    )
+    neutral_b1: pat.Series[float] = pa.Field(
+        coerce=True, description="The susceptance at the from side of the neutral tap position."
+    )
+    neutral_g2: pat.Series[float] = pa.Field(
+        coerce=True, description="The conductance at the to side of the neutral tap position."
+    )
+    neutral_b2: pat.Series[float] = pa.Field(
+        coerce=True, description="The susceptance at the to side of the neutral tap position."
+    )
+
+    class Config:
+        """Define Pandera class config."""
+
+        strict = True
+
+
+class TapPositionParamSchema(pa.DataFrameModel):
+    """Generic Tap position parameter needed for transformer ratio and phase tap-step imports.
+
+    Note: The tap position parameter are the offset values at the tap position, based on the neutral position.
+    There are different ways to model tap positions e.g. relative to the neutral position.
+    """
+
+    id_str: pat.Series[str] = pa.Field(coerce=True, description="Corresponding element ID, e.g. a branch_id_str.")
+    position: pat.Series[int] = pa.Field(coerce=True, description="The tap position of the tap changer.")
+    offset_r: pat.Series[float] = pa.Field(coerce=True, description="The offset resistance at the tap position.")
+    offset_x: pat.Series[float] = pa.Field(coerce=True, description="The offset reactance at the tap position.")
+    offset_g1: pat.Series[float] = pa.Field(
+        coerce=True, description="The offset conductance at the from side of the tap position."
+    )
+    offset_g2: pat.Series[float] = pa.Field(
+        coerce=True, description="The offset conductance at the to side of the tap position."
+    )
+    offset_b1: pat.Series[float] = pa.Field(
+        coerce=True, description="The offset susceptance at the from side of the tap position."
+    )
+    offset_b2: pat.Series[float] = pa.Field(
+        coerce=True, description="The offset susceptance at the to side of the tap position."
+    )
+    offset_alpha: pat.Series[float] = pa.Field(coerce=True, description="The offset branch phase angle at the tap position.")
+    offset_rho: pat.Series[float] = pa.Field(coerce=True, description="The offset branch tap ratio at the tap position.")
 
     class Config:
         """Define Pandera class config."""

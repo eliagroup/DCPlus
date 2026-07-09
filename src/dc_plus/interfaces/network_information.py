@@ -28,7 +28,7 @@ Note:
 
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import Literal, TypeAlias
+from typing import Dict, Literal, TypeAlias
 
 import numpy as np
 from jaxtyping import Bool, Float, Int
@@ -94,57 +94,74 @@ class InjectionTypeBusBranch(IntEnum):
 StringArray: TypeAlias = np.ndarray[np.str_, ...]
 
 
-@dataclass
+def _arrays_equal(left: np.ndarray, right: np.ndarray) -> bool:
+    return np.array_equal(np.asarray(left), np.asarray(right), equal_nan=True)
+
+
+@dataclass(eq=False)
 class TransformerTapInformation:
-    """Contains transformer tap information for a single transformer.
+    """Contains branch-aligned transformer tap information.
 
     Either for ratio-changing or phase-shifting transformers.
+    Branches without the corresponding tap changer type are represented with zeros.
 
     A implementation of the cim:PhaseTapChangerTablePoint module.
     Or the pypowsybl.network.Network.get_phase_tap_changer_steps method.
     """
 
     n_max_tap_positions: int
-    """Number of maximum tap positions.
+    """Number of maximum tap positions."""
 
-    If a transformer has fewer positions, the remaining positions are padded as zeros.
-    """
+    neutral_conductance_series: float
+    """Conductance of series at the neutral tap position."""
 
-    min_tap_pos: Int[np.ndarray, " n_branch"]
-    """Minimum tap position of the tap-changing transformers."""
+    neutral_susceptance_series: float
+    """Susceptance of series at the neutral tap position."""
 
-    max_tap_pos: Int[np.ndarray, " n_branch"]
-    """Maximum tap position of the tap-changing transformers."""
+    neutral_conductance_charging_from: float
+    """Conductance of charging from at the neutral tap position."""
 
-    neutral_tap_pos: Int[np.ndarray, " n_branch"]
-    """Neutral tap position of the tap-changing transformers."""
+    neutral_susceptance_charging_from: float
+    """Susceptance of charging from at the neutral tap position."""
 
-    tap_conductance_series: Float[np.ndarray, " n_branch n_max_tap_positions"]
-    """Conductance of series for different tap positions."""
+    neutral_conductance_charging_to: float
+    """Conductance of charging to at the neutral tap position."""
 
-    tap_susceptance_series: Float[np.ndarray, " n_branch n_max_tap_positions"]
-    """Susceptance of series for different tap positions."""
+    neutral_susceptance_charging_to: float
+    """Susceptance of charging to at the neutral tap position."""
 
-    tap_conductance_charging_from: Float[np.ndarray, " n_branch n_max_tap_positions"]
-    """Conductance of charging for different tap positions."""
+    neutral_shift_angle: float
+    """Shift angle at the neutral tap position."""
 
-    tap_susceptance_charging_from: Float[np.ndarray, " n_branch n_max_tap_positions"]
-    """Susceptance of charging for different tap positions."""
+    neutral_shift_ratio_rho: float
+    """Tap shift ratio at the neutral tap position."""
 
-    tap_conductance_charging_to: Float[np.ndarray, " n_branch n_max_tap_positions"]
-    """Conductance of charging for different tap positions."""
+    tap_offset_conductance_series: Float[np.ndarray, " n_max_tap_positions"]
+    """Conductance offset of series for different tap positions."""
 
-    tap_susceptance_charging_to: Float[np.ndarray, " n_branch n_max_tap_positions"]
-    """Susceptance of charging for different tap positions."""
+    tap_offset_susceptance_series: Float[np.ndarray, " n_max_tap_positions"]
+    """Susceptance  offset of series for different tap positions."""
 
-    tap_shift_angle: Float[np.ndarray, " n_branch n_max_tap_positions"]
-    """Shift angle for different tap positions."""
+    tap_offset_conductance_charging_from: Float[np.ndarray, " n_max_tap_positions"]
+    """Conductance offset of charging for different tap positions."""
 
-    tap_shift_ratio_rho: Float[np.ndarray, " n_branch n_max_tap_positions"]
-    """Tap shift ratio for different tap positions."""
+    tap_offset_susceptance_charging_from: Float[np.ndarray, " n_max_tap_positions"]
+    """Susceptance offset of charging for different tap positions."""
+
+    tap_offset_conductance_charging_to: Float[np.ndarray, " n_max_tap_positions"]
+    """Conductance offset of charging for different tap positions."""
+
+    tap_offset_susceptance_charging_to: Float[np.ndarray, " n_max_tap_positions"]
+    """Susceptance offset of charging for different tap positions."""
+
+    tap_offset_shift_angle: Float[np.ndarray, " n_max_tap_positions"]
+    """Tap angle offset for different tap positions."""
+
+    tap_offset_shift_ratio_rho: Float[np.ndarray, " n_max_tap_positions"]
+    """Tap ratio offset for different tap positions."""
 
 
-@dataclass
+@dataclass(eq=False)
 class ShuntSectionInformation:
     """Contains shunt section information for shunt elements."""
 
@@ -173,8 +190,31 @@ class ShuntSectionInformation:
     Note: this is the absolute susceptance, don't add the base susceptance.
     """
 
+    @classmethod
+    def empty(cls, n_shunts: int) -> "ShuntSectionInformation":
+        """Create an empty shunt section container."""
+        return cls(
+            n_max_shunt_sections=0,
+            min_shunt_section=np.zeros(n_shunts, dtype=int),
+            max_shunt_section=np.zeros(n_shunts, dtype=int),
+            shunt_conductance_at_section=np.zeros((n_shunts, 0), dtype=float),
+            shunt_susceptance_at_section=np.zeros((n_shunts, 0), dtype=float),
+        )
 
-@dataclass
+    def __eq__(self, other: object) -> bool:
+        """Check the equality of two ShuntSectionInformation objects."""
+        if not isinstance(other, ShuntSectionInformation):
+            return NotImplemented
+        return (
+            self.n_max_shunt_sections == other.n_max_shunt_sections
+            and _arrays_equal(self.min_shunt_section, other.min_shunt_section)
+            and _arrays_equal(self.max_shunt_section, other.max_shunt_section)
+            and _arrays_equal(self.shunt_conductance_at_section, other.shunt_conductance_at_section)
+            and _arrays_equal(self.shunt_susceptance_at_section, other.shunt_susceptance_at_section)
+        )
+
+
+@dataclass(eq=False)
 class StaticNetworkInformation:
     """Contains all static network information required for the DC+ solver.
 
@@ -224,17 +264,36 @@ class StaticNetworkInformation:
     has_phase_shifting_transformer: Bool[np.ndarray, " n_branch"]
     """Indicates whether a branch has a phase-shifting transformer."""
 
-    phase_shift_info: TransformerTapInformation
-    """Contains transformer tap information for the branches.
+    phase_shift_info: Dict[int, TransformerTapInformation]
+    """Contains branch-aligned phase-shifting transformer tap information.
 
     Note: this is not optional, even if no transformers are present.
+    key: branch index
+    value: TransformerTapInformation for the phase-shifting transformer of the branch.
     """
 
-    ratio_shift_info: TransformerTapInformation
-    """Contains transformer tap information for the branches.
+    ratio_shift_info: Dict[int, TransformerTapInformation]
+    """Contains branch-aligned ratio-changing transformer tap information.
 
     Note: this is not optional, even if no transformers are present.
+    key: branch index
+    value: TransformerTapInformation for the ratio-changing transformer of the branch.
     """
+
+    def __eq__(self, other: object) -> bool:
+        """Check the equality of two StaticNetworkInformation objects."""
+        if not isinstance(other, StaticNetworkInformation):
+            return NotImplemented
+        return (
+            _arrays_equal(self.injection_limits, other.injection_limits)
+            and self.shunt_section_info == other.shunt_section_info
+            and self.n_limits == other.n_limits
+            and _arrays_equal(self.branch_current_limits, other.branch_current_limits)
+            and _arrays_equal(self.has_ratio_changing_transformer, other.has_ratio_changing_transformer)
+            and _arrays_equal(self.has_phase_shifting_transformer, other.has_phase_shifting_transformer)
+            and self.phase_shift_info == other.phase_shift_info
+            and self.ratio_shift_info == other.ratio_shift_info
+        )
 
 
 @dataclass
