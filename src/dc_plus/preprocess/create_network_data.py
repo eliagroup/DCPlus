@@ -158,6 +158,7 @@ def _create_network_data(
         branch_ids=branches["id_str"].values,
         limit_names=limits["name"].values,
         injection_types=injections["injection_type"].values,
+        injection_ids=injections["id_str"].values,
     )
 
     _check_network_data_consistency(dynamic_network_data=dynamic_info, string_network_data=string_info)
