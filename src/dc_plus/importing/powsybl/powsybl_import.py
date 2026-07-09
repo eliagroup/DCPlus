@@ -20,6 +20,7 @@ from dc_plus.importing.import_schema import (
     LimitParamSchema,
     ShuntParamSchema,
 )
+from dc_plus.interfaces.network_information import BusType
 
 logger = logging.getLogger(__name__)
 
@@ -907,17 +908,27 @@ def _get_dangling_buses(net: Network) -> BusParamSchema:
     # TODO: get values depending on the connected state and the bus_id of the dangling line
     dangling_buses["grid_island_id"] = 0
     dangling_buses["bus_type"] = 2  # PQ bus
+    dangling_buses["is_angle_reference"] = False
     bus_order_int_ids = _get_bus_ids_with_dangling_buses(net)
     dangling_buses = dangling_buses.merge(bus_order_int_ids, how="left", on=["id_str"])
 
     dangling_buses = dangling_buses[
-        ["id_str", "id_int", "name", "voltage_magnitude", "voltage_angle", "bus_type", "grid_island_id"]
+        [
+            "id_str",
+            "id_int",
+            "name",
+            "voltage_magnitude",
+            "voltage_angle",
+            "bus_type",
+            "is_angle_reference",
+            "grid_island_id",
+        ]
     ]
     dangling_buses = BusParamSchema.validate(dangling_buses)
     return dangling_buses
 
 
-def _get_buses_powsybl(net: Network, slack_id: str, injections: InjectionParamSchema) -> BusParamSchema:
+def _get_buses_powsybl(net: Network, slack_id: str, injections: InjectionParamSchema, reference_id: str) -> BusParamSchema:
     """Get the bus parameters of the network.
 
     Gets the bus parameters from the network.
@@ -930,6 +941,8 @@ def _get_buses_powsybl(net: Network, slack_id: str, injections: InjectionParamSc
         The id of the slack bus.
     injections : InjectionParamSchema
         The injections of the network.
+    reference_id : str
+        The id of the reference bus for angle reference.
 
     Returns
     -------
@@ -942,6 +955,7 @@ def _get_buses_powsybl(net: Network, slack_id: str, injections: InjectionParamSc
     buses.reset_index(drop=False, inplace=True)
     buses.rename(columns={"id": "id_str"}, inplace=True)
     buses["bus_type"] = 2  # PQ bus is default
+    buses["is_angle_reference"] = buses["id_str"].eq(reference_id)
 
     buses.rename(columns={"v_mag": "voltage_magnitude", "v_angle": "voltage_angle"}, inplace=True)
 
@@ -966,15 +980,29 @@ def _get_buses_powsybl(net: Network, slack_id: str, injections: InjectionParamSc
     buses = buses.merge(bus_order_int_ids, how="left", on=["id_str"])
 
     # now the main grid "0" has only connected_component == 0 and synchronous_component == 0
-    buses = buses[["id_str", "id_int", "name", "voltage_magnitude", "voltage_angle", "bus_type", "grid_island_id"]]
+    buses = buses[
+        [
+            "id_str",
+            "id_int",
+            "name",
+            "voltage_magnitude",
+            "voltage_angle",
+            "bus_type",
+            "is_angle_reference",
+            "grid_island_id",
+        ]
+    ]
 
     dangling_buses = _get_dangling_buses(net)
     buses = pd.concat([buses, dangling_buses], ignore_index=True)
     buses.sort_values(by=["id_int"], inplace=True)
-    # set bus types
-    pv_buses = injections[(injections["voltage_regulation"])]["regulated_bus_id_int"].unique()
-    buses.loc[buses["id_int"].isin(pv_buses), "bus_type"] = 1  # PV bus
-    buses.loc[buses["id_str"] == slack_id, "bus_type"] = 0  # slack bus
+    # Bus type tracks voltage control; the reference-angle role is stored separately.
+    voltage_control_buses = injections[(injections["connected"]) & (injections["voltage_regulation"])][
+        "regulated_bus_id_int"
+    ].unique()
+    buses.loc[buses["id_int"].isin(voltage_control_buses), "bus_type"] = BusType.PV
+    slack_mask = buses["id_str"].eq(slack_id) & buses["id_int"].isin(voltage_control_buses)
+    buses.loc[slack_mask, "bus_type"] = BusType.SLACK
 
     buses = BusParamSchema.validate(buses)
     return buses

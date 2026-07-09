@@ -140,6 +140,7 @@ def _create_network_data(
         bus_active_power=bus_active_power,
         bus_reactive_power=bus_reactive_power,
         bus_type=buses["bus_type"].values.astype(int),
+        bus_is_angle_reference=buses["is_angle_reference"].values.astype(bool),
         injection_to_bus=injections["bus_index"].values.astype(int),
         injection_active_power=injections["p"].values,
         injection_reactive_power=injections["q"].values,
@@ -187,7 +188,12 @@ def create_network_data(
     injections = _get_injections_powsybl(network)
     shunts = _get_shunts_powsybl(network)
     slack_id = network.get_extensions("slackTerminal")["bus_id"].values[0]
-    buses = _get_buses_powsybl(net=network, slack_id=slack_id, injections=injections)
+    references = network.get_extensions("referencePriorities")
+    if len(references) > 0:
+        reference_id = network.get_extensions("referencePriorities").index[0]
+    else:
+        reference_id = slack_id
+    buses = _get_buses_powsybl(net=network, slack_id=slack_id, injections=injections, reference_id=reference_id)
     limits = _get_limits_parameter_powsybl(network)
 
     return _create_network_data(

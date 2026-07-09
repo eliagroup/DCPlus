@@ -51,7 +51,7 @@ def _get_jacobian_data_from_network_data(dynamic_network_data: DynamicNetworkInf
         jacobian_index_in_use=jacobian_index_in_use,
         pointer_to_original_bus=np.arange(dynamic_network_data.n_buses, dtype=np.int32),
         jacobian=jacobian,
-        inverse_jacobian=sparse_inv(jacobian).toarray(),
+        inverse_jacobian=sparse_inv(jacobian.tocsc()).toarray(),
         is_angle_component=is_angle_component,
         is_magnitude_component=is_magnitude_component,
         pvpq_indices=pvpq_indices,
@@ -86,7 +86,7 @@ def get_jacobian_from_network_data(
     pqpv_indices = dynamic_network_data.pvpq_buses_indices_pvpq_order
 
     voltage = voltage_magnitudes * np.exp(1.0j * voltage_angles)
-    if np.any(voltage == 0.0):
+    if np.any(np.isclose(voltage, 0.0, atol=1e-10)):
         raise ValueError("Voltage magnitudes must be strictly positive to construct the Jacobian.")
 
     voltage_norm = voltage / abs(voltage)

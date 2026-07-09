@@ -302,6 +302,12 @@ def _extend_dynamic_network_data(
             np.full(split_count, BusType.PQ, dtype=dynamic_network_data.bus_type.dtype),
         )
     )
+    extended_bus_is_angle_reference = np.concatenate(
+        (
+            dynamic_network_data.bus_is_angle_reference,
+            np.zeros(split_count, dtype=dynamic_network_data.bus_is_angle_reference.dtype),
+        )
+    )
 
     return replace(
         dynamic_network_data,
@@ -310,6 +316,7 @@ def _extend_dynamic_network_data(
         bus_active_power=extended_bus_active_power,
         bus_reactive_power=extended_bus_reactive_power,
         bus_type=extended_bus_type,
+        bus_is_angle_reference=extended_bus_is_angle_reference,
     )
 
 

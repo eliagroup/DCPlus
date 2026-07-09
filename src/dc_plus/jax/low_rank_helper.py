@@ -128,7 +128,9 @@ def _compute_branch_delta_submatrix_from_admittance(
     dqt_dvt = -2.0 * v_t * b_tt + v_f * (g_tf * sin_tf - b_tf * cos_tf)
     dqt_dvf = v_t * (g_tf * sin_tf - b_tf * cos_tf)
 
-    dtype = jnp.result_type(v_mag_from, v_mag_to, theta_from, theta_to, y_ff)
+    # Jacobian block entries are real-valued; avoid propagating complex dtypes
+    # from admittance inputs into downstream scatter-add updates.
+    dtype_input = jnp.result_type(v_mag_from, v_mag_to, theta_from, theta_to, g_ff)
 
     delta = jnp.array(
         [
@@ -137,7 +139,7 @@ def _compute_branch_delta_submatrix_from_admittance(
             [-dqf_dthf, -dqf_dtht, -dqf_dvf, -dqf_dvt],
             [-dqt_dthf, -dqt_dtht, -dqt_dvf, -dqt_dvt],
         ],
-        dtype=dtype,
+        dtype=dtype_input,
     )
     return delta
 
