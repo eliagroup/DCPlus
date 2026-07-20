@@ -90,7 +90,7 @@ def get_bsdf_cases() -> List[BsdfTestCase]:
 
     # simple_bsdf_test_case
     # based on basic_node_breaker_network_powsybl
-    # simple reasignment and
+    # simple reassignment and
     get_net = basic_node_breaker_network_powsybl
     bus_to_split = 2
     branches_connected_to_bus_b_string = ["L3", "L6"]

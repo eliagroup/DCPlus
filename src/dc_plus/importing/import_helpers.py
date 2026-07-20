@@ -280,10 +280,9 @@ def _get_branch_admittance_terms(
     Complex128[np.ndarray, " n_branches"],
 ]:
     """Build reusable branch admittance primitives from electrical parameters."""
-    if np.any(np.isclose(r + x, 0.0, rtol=1e-8)):
-        y_series = np.zeros_like(r, dtype=complex)
-    else:
-        y_series = 1 / (r + 1j * x)
+    zero_impedance_mask = np.isclose(r + x, 0.0, rtol=1e-8)
+    y_series = np.zeros_like(r, dtype=complex)
+    y_series[~zero_impedance_mask] = 1 / (r[~zero_impedance_mask] + 1j * x[~zero_impedance_mask])
     y_charging_from = g1 + 1j * b1
     y_charging_to = g2 + 1j * b2
     rho_alpha = rho * np.exp(1j * alpha)

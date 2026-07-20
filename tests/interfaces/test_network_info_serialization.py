@@ -9,11 +9,9 @@
 from dc_plus.preprocess.create_network_data import create_network_data_pypowsybl
 import pypowsybl
 from dc_plus.interfaces.network_information import (
-    BusType,
     DynamicNetworkInformation,
     StaticNetworkInformation,
     StringNetworkInformation,
-    TransformerTapInformation,
     NetworkInformation,
 )
 

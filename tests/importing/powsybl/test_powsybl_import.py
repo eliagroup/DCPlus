@@ -5,12 +5,10 @@
 # you can obtain one at https://mozilla.org/MPL/2.0/.
 # Mozilla Public License, version 2.0
 
-import py
 import numpy as np
 import pandas as pd
 import pandas.testing as pdt
 import pypowsybl
-import pytest
 
 from dc_plus.example_grids.pypowsbl.example_grids import create_complex_grid_battery_hvdc_svc_3w_trafo
 from dc_plus.importing.import_helpers import _remove_isolated_buses_injections
