@@ -115,7 +115,10 @@ def test_pandapower_native_import(network_func, network_name):
     pp.runpp(net, calculate_voltage_angles=True)
 
     # Extract network information
-    static_info, dynamic_info, string_info = create_network_data_pandapower(net)
+    network_info = create_network_data_pandapower(net)
+    static_info = network_info.static_network_data
+    dynamic_info = network_info.dynamic_network_data
+    string_info = network_info.string_network_data
     assert isinstance(static_info, StaticNetworkInformation)
     assert isinstance(dynamic_info, DynamicNetworkInformation)
     assert isinstance(string_info, StringNetworkInformation)

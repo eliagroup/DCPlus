@@ -13,13 +13,9 @@ import pandapower as pp
 import pypowsybl
 from pandapower.auxiliary import pandapowerNet
 
-from dc_plus.interfaces.network_information import (
-    DynamicNetworkInformation,
-    StaticNetworkInformation,
-    StringNetworkInformation,
-)
+from dc_plus.interfaces.network_information import DynamicNetworkInformation
 from dc_plus.preprocess.create_network_data import (
-    create_network_data,
+    create_network_data_pypowsybl,
     create_network_data_pandapower,
 )
 
@@ -108,8 +104,8 @@ class NetworkImportComparator:
             Comparison results.
         """
         # Extract network data from both implementations
-        static_psb, dynamic_psb, string_psb = create_network_data(powsybl_network)
-        static_pp, dynamic_pp, string_pp = create_network_data_pandapower(pandapower_network)
+        dynamic_psb = create_network_data_pypowsybl(powsybl_network).dynamic_network_data
+        dynamic_pp = create_network_data_pandapower(pandapower_network).dynamic_network_data
 
         return self.compare_dynamic_network_info(dynamic_psb, dynamic_pp)
 
@@ -148,7 +144,7 @@ class NetworkImportComparator:
         >>> pp_net = pp.networks.case9()
         >>>
         >>> _, dynamic_psb, _ = create_network_data(psb_net)
-        >>> _, dynamic_pp, _ = create_network_data_pandapower(pp_net)
+        >>> dynamic_pp = create_network_data_pandapower(pp_net).dynamic_network_data
         >>>
         >>> # Compare
         >>> comparator = NetworkImportComparator(tolerance=1e-6)
@@ -261,7 +257,7 @@ class NetworkImportComparator:
         status_match = np.allclose(dynamic_psb.branch_connected, dynamic_pp.branch_connected, rtol=0, atol=0)
 
         # Compare symmetry
-        symmetry_match = np.allclose(dynamic_psb.is_branch_symmetric, dynamic_pp.is_branch_symmetric, rtol=0, atol=0)
+        symmetry_match = np.allclose(dynamic_psb.branch_is_symmetric, dynamic_pp.branch_is_symmetric, rtol=0, atol=0)
 
         details = {
             "n_branches": n_branches_psb,
@@ -270,8 +266,8 @@ class NetworkImportComparator:
             "symmetry_match": symmetry_match,
             "connected_branches_psb": np.sum(dynamic_psb.branch_connected),
             "connected_branches_pp": np.sum(dynamic_pp.branch_connected),
-            "symmetric_branches_psb": np.sum(dynamic_psb.is_branch_symmetric),
-            "symmetric_branches_pp": np.sum(dynamic_pp.is_branch_symmetric),
+            "symmetric_branches_psb": np.sum(dynamic_psb.branch_is_symmetric),
+            "symmetric_branches_pp": np.sum(dynamic_pp.branch_is_symmetric),
         }
 
         match = connectivity_match and status_match

@@ -68,8 +68,8 @@ class JacobianInterface:
         inverse_jacobian: Float[np.ndarray, " n_eq_jacobian n_eq_jacobian "],
         is_angle_component: Bool[np.ndarray, " n_eq_jacobian"],
         is_magnitude_component: Bool[np.ndarray, " n_eq_jacobian"],
-        pvpq_indices: Int[np.ndarray, " n_pvpq_bus "],
-        pq_indices: Int[np.ndarray, " n_pq_bus "],
+        angle_bus_indices: Int[np.ndarray, " n_angle_bus "],
+        magnitude_bus_indices: Int[np.ndarray, " n_magnitude_bus "],
         n_buses: int,
     ) -> "JacobianInterface":
         """Initialize the JacobianInterface.
@@ -90,10 +90,10 @@ class JacobianInterface:
             Boolean vector indicating which components of the jacobian correspond to angle variables.
         is_magnitude_component: Bool[np.ndarray, " n_eq_jacobian"]
             Boolean vector indicating which components of the jacobian correspond to magnitude variables.
-        pvpq_indices: Int[np.ndarray, " n_pvpq_bus "]
-            Integer vector indicating the indices of PV and PQ buses.
-        pq_indices: Int[np.ndarray, " n_pq_bus "]
-            Integer vector indicating the indices of PQ buses.
+        angle_bus_indices: Int[np.ndarray, " n_angle_bus "]
+            Integer vector indicating the indices of buses with angle variables.
+        magnitude_bus_indices: Int[np.ndarray, " n_magnitude_bus "]
+            Integer vector indicating the indices of buses with magnitude variables.
         n_buses: int
             Total number of buses in the system.
 
@@ -110,14 +110,50 @@ class JacobianInterface:
         self.inverse_jacobian = inverse_jacobian
         self.is_angle_component = is_angle_component
         self.is_magnitude_component = is_magnitude_component
-        self.bus_angle_indices = pvpq_indices
-        self.bus_magnitude_indices = pq_indices
+        self.bus_angle_indices = angle_bus_indices
+        self.bus_magnitude_indices = magnitude_bus_indices
         angle_component_indices = np.full(n_buses, -1, dtype=np.int32)
         magnitude_component_indices = np.full(n_buses, -1, dtype=np.int32)
-        angle_component_indices[pvpq_indices] = np.flatnonzero(is_angle_component)
-        magnitude_component_indices[pq_indices] = np.flatnonzero(is_magnitude_component)
+        angle_component_indices[angle_bus_indices] = np.flatnonzero(is_angle_component)
+        magnitude_component_indices[magnitude_bus_indices] = np.flatnonzero(is_magnitude_component)
         self.angle_component_indices = angle_component_indices
         self.magnitude_component_indices = magnitude_component_indices
+
+    @property
+    def n_angle_components(self) -> int:
+        """Return the number of angle variables in the Jacobian layout."""
+        return self.bus_angle_indices.size
+
+    @property
+    def n_magnitude_components(self) -> int:
+        """Return the number of voltage-magnitude variables in the Jacobian layout."""
+        return self.bus_magnitude_indices.size
+
+    @property
+    def uses_voltage_setpoint_rows(self) -> bool:
+        """Return whether the lower Jacobian block includes PV voltage-control rows."""
+        return self.n_angle_components == self.n_magnitude_components and np.array_equal(
+            self.bus_angle_indices,
+            self.bus_magnitude_indices,
+        )
+
+    def copy_with_inverse_jacobian(
+        self,
+        inverse_jacobian: Float[np.ndarray, " n_eq_jacobian n_eq_jacobian"],
+    ) -> "JacobianInterface":
+        """Return a copy with an updated inverse Jacobian approximation."""
+        return JacobianInterface(
+            bus_is_used=self.bus_is_used.copy(),
+            jacobian_index_in_use=self.jacobian_index_in_use.copy(),
+            pointer_to_original_bus=self.pointer_to_original_bus.copy(),
+            jacobian=self.jacobian.copy(),
+            inverse_jacobian=inverse_jacobian,
+            is_angle_component=self.is_angle_component.copy(),
+            is_magnitude_component=self.is_magnitude_component.copy(),
+            angle_bus_indices=self.bus_angle_indices.copy(),
+            magnitude_bus_indices=self.bus_magnitude_indices.copy(),
+            n_buses=self.bus_is_used.size,
+        )
 
     # ruff: noqa: PLR0911, C901
     def __eq__(self, value: "JacobianInterface") -> bool:
@@ -148,10 +184,10 @@ class JacobianInterface:
         if not np.array_equal(self.is_magnitude_component, value.is_magnitude_component):
             return False
 
-        if not np.array_equal(np.sort(self.bus_angle_indices), np.sort(value.bus_angle_indices)):
+        if not np.array_equal(self.bus_angle_indices, value.bus_angle_indices):
             return False
 
-        if not np.array_equal(np.sort(self.bus_magnitude_indices), np.sort(value.bus_magnitude_indices)):
+        if not np.array_equal(self.bus_magnitude_indices, value.bus_magnitude_indices):
             return False
 
         if not np.allclose(self.inverse_jacobian, value.inverse_jacobian):

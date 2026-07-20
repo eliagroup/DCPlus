@@ -14,13 +14,11 @@ This is needed, as you do not know beforehand how to split and how many PV/PQ bu
 But note, a switch outage can lead to more splits than anticipated.
 """
 
-from dataclasses import replace
-
 import numpy as np
 import scipy.sparse as sp
 
 from dc_plus.interfaces.jacobian_interface import JacobianInterface
-from dc_plus.interfaces.network_information import BusType, DynamicNetworkInformation
+from dc_plus.interfaces.network_information import BusType, DynamicNetworkInformation, replace_network_data
 from dc_plus.interfaces.type_hints import PosInt
 
 
@@ -302,14 +300,23 @@ def _extend_dynamic_network_data(
             np.full(split_count, BusType.PQ, dtype=dynamic_network_data.bus_type.dtype),
         )
     )
+    extended_bus_is_angle_reference = np.concatenate(
+        (
+            dynamic_network_data.bus_is_angle_reference,
+            np.zeros(split_count, dtype=dynamic_network_data.bus_is_angle_reference.dtype),
+        )
+    )
+    extended_bus_voltage_magnitude_setpoint = _pad_axis0(dynamic_network_data.bus_voltage_magnitude_setpoint, 1.0)
 
-    return replace(
+    return replace_network_data(
         dynamic_network_data,
         bus_voltage_magnitudes=extended_bus_voltage_magnitudes,
         bus_voltage_angles_rad=extended_bus_voltage_angles,
         bus_active_power=extended_bus_active_power,
         bus_reactive_power=extended_bus_reactive_power,
         bus_type=extended_bus_type,
+        bus_is_angle_reference=extended_bus_is_angle_reference,
+        bus_voltage_magnitude_setpoint=extended_bus_voltage_magnitude_setpoint,
     )
 
 
@@ -392,14 +399,18 @@ def preprocess_jacobian_bsdf(
 
     # Calculate valid indices and prepare final data structures
     n_buses_extended = extended_bus_is_used.size
+    new_bus_indices = np.arange(dynamic_network_data.n_buses, n_buses_extended, dtype=np.int32)
+    extended_angle_bus_indices = np.concatenate(
+        (jacobian_data.bus_angle_indices.astype(np.int32, copy=False), new_bus_indices)
+    )
+    extended_magnitude_bus_indices = np.concatenate(
+        (jacobian_data.bus_magnitude_indices.astype(np.int32, copy=False), new_bus_indices)
+    )
 
     magnitude_slice_new = slice(n_angle + split_count, n_angle + split_count + n_voltage)
     is_valid_index = np.zeros(n_eq_extended, dtype=bool)
     is_valid_index[:n_angle] = True
     is_valid_index[magnitude_slice_new] = True
-
-    pq_indices = extended_dynamic_network_data.pq_buses_indices
-    pvpq_indices = extended_dynamic_network_data.pvpq_buses_indices_pvpq_order
 
     extended_jacobian_data = JacobianInterface(
         bus_is_used=extended_bus_is_used,
@@ -409,8 +420,8 @@ def preprocess_jacobian_bsdf(
         inverse_jacobian=extended_inverse,
         is_angle_component=extended_is_angle,
         is_magnitude_component=extended_is_magnitude,
-        pvpq_indices=pvpq_indices,
-        pq_indices=pq_indices,
+        angle_bus_indices=extended_angle_bus_indices,
+        magnitude_bus_indices=extended_magnitude_bus_indices,
         n_buses=n_buses_extended,
     )
 

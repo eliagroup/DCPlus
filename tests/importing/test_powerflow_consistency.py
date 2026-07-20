@@ -7,8 +7,6 @@
 
 """Ensure the Pandapower importer reproduces native AC power-flow results."""
 
-from __future__ import annotations
-
 import numpy as np
 import pandapower as pp
 import pytest
@@ -31,7 +29,9 @@ def _assert_close(name: str, lhs: np.ndarray, rhs: np.ndarray, tol: float) -> No
 
 
 def assert_import_matches_pandapower(net: "pp.pandapowerNet", tol: float) -> None:
-    _, dynamic, string = create_network_data_pandapower(net)
+    network_info = create_network_data_pandapower(net)
+    dynamic = network_info.dynamic_network_data
+    string = network_info.string_network_data
 
     _assert_close(
         "bus voltage magnitude",

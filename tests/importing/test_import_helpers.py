@@ -23,28 +23,31 @@ def test_remove_isolated_buses_injections():
             "voltage_magnitude": [1.0, 0.98, 1.02],
             "voltage_angle": [0.0, -0.05, 0.03],
             "bus_type": [0, 1, 2],
+            "is_angle_reference": [True, False, False],
             "grid_island_id": [0, 0, 1],
+            "regulating_generator_reached_limit": [False, False, False],
         }
     )
     injections = pd.DataFrame(
         {
-            "id_int": [100, 101, 102],
-            "id_str": ["inj_0", "inj_1", "inj_2"],
-            "injection_type": ["GENERATOR", "LOAD", "GENERATOR"],
-            "p": [50.0, -20.0, 15.0],
-            "q": [5.0, -2.0, 1.5],
-            "i": [1.0, 0.5, 0.3],
-            "setpoint_p": [50.0, np.nan, 15.0],
-            "setpoint_q": [5.0, np.nan, 1.5],
-            "min_q": [-10.0, -5.0, -5.0],
-            "max_q": [10.0, 5.0, 5.0],
-            "min_p": [0.0, -30.0, 0.0],
-            "max_p": [60.0, 0.0, 20.0],
-            "bus_index": [0, 1, 2],
-            "connected": [True, True, False],
-            "voltage_regulation": [True, False, False],
-            "regulated_bus_id_str": ["bus_0", "", ""],
-            "regulated_bus_id_int": [0, -1, -1],
+            "id_int": [100, 101, 102, 103],
+            "id_str": ["inj_0", "inj_1", "inj_2", "inj_3"],
+            "injection_type": ["GENERATOR", "LOAD", "GENERATOR", "LOAD"],
+            "p": [50.0, -20.0, 15.0, -5.0],
+            "q": [5.0, -2.0, 1.5, -0.5],
+            "i": [1.0, 0.5, 0.3, 0.1],
+            "setpoint_p": [50.0, np.nan, 15.0, np.nan],
+            "setpoint_q": [5.0, np.nan, 1.5, np.nan],
+            "voltage_setpoint": [1.0, np.nan, 1.02, np.nan],
+            "min_q": [-10.0, -5.0, -5.0, -2.0],
+            "max_q": [10.0, 5.0, 5.0, 2.0],
+            "min_p": [0.0, -30.0, 0.0, -10.0],
+            "max_p": [60.0, 0.0, 20.0, 0.0],
+            "bus_index": [0, 1, 2, -1],
+            "connected": [True, True, False, True],
+            "voltage_regulation": [True, False, False, False],
+            "regulated_bus_id_str": ["bus_0", "", "", ""],
+            "regulated_bus_id_int": [0, -1, -1, -1],
         }
     )
 
@@ -73,32 +76,34 @@ def test_remove_isolated_branches():
             "voltage_magnitude": [1.0, 1.0, 1.0],
             "voltage_angle": [0.0, 0.0, 0.0],
             "bus_type": [0, 1, 2],
+            "is_angle_reference": [True, False, False],
             "grid_island_id": [0, 0, 1],
+            "regulating_generator_reached_limit": [False, False, False],
         }
     )
     branches = pd.DataFrame(
         {
-            "id_int": [10, 11, 12],
-            "id_str": ["br_0", "br_1", "br_2"],
-            "name": ["Branch 0", "Branch 1", "Branch 2"],
-            "connected": [True, True, True],
-            "r": [0.01, 0.02, 0.03],
-            "x": [0.05, 0.04, 0.06],
-            "g1": [0.0, 0.0, 0.0],
-            "b1": [0.02, 0.01, 0.02],
-            "g2": [0.0, 0.0, 0.0],
-            "b2": [0.02, 0.01, 0.02],
-            "p1": [np.nan, np.nan, np.nan],
-            "q1": [np.nan, np.nan, np.nan],
-            "i1": [np.nan, np.nan, np.nan],
-            "p2": [np.nan, np.nan, np.nan],
-            "q2": [np.nan, np.nan, np.nan],
-            "i2": [np.nan, np.nan, np.nan],
-            "rho": [1.0, 1.0, 1.0],
-            "alpha": [0.0, 0.0, 0.0],
-            "from_bus_index": [0, 0, 2],
-            "to_bus_index": [1, 2, 1],
-            "branch_type": ["LINE", "LINE", "LINE"],
+            "id_int": [10, 11, 12, 13],
+            "id_str": ["br_0", "br_1", "br_2", "br_3"],
+            "name": ["Branch 0", "Branch 1", "Branch 2", "Branch 3"],
+            "connected": [True, True, True, True],
+            "r": [0.01, 0.02, 0.03, 0.04],
+            "x": [0.05, 0.04, 0.06, 0.07],
+            "g1": [0.0, 0.0, 0.0, 0.0],
+            "b1": [0.02, 0.01, 0.02, 0.03],
+            "g2": [0.0, 0.0, 0.0, 0.0],
+            "b2": [0.02, 0.01, 0.02, 0.03],
+            "p1": [np.nan, np.nan, np.nan, np.nan],
+            "q1": [np.nan, np.nan, np.nan, np.nan],
+            "i1": [np.nan, np.nan, np.nan, np.nan],
+            "p2": [np.nan, np.nan, np.nan, np.nan],
+            "q2": [np.nan, np.nan, np.nan, np.nan],
+            "i2": [np.nan, np.nan, np.nan, np.nan],
+            "rho": [1.0, 1.0, 1.0, 1.0],
+            "alpha": [0.0, 0.0, 0.0, 0.0],
+            "from_bus_index": [0, 0, 2, -1],
+            "to_bus_index": [1, 2, 1, 1],
+            "branch_type": ["LINE", "LINE", "LINE", "LINE"],
         }
     )
 
@@ -125,7 +130,9 @@ def test_remove_isolated_buses():
             "voltage_magnitude": [1.0, 0.97, 1.01, 0.95],
             "voltage_angle": [0.0, -0.03, 0.02, -0.05],
             "bus_type": [0, 1, 2, 2],
+            "is_angle_reference": [True, False, False, False],
             "grid_island_id": [0, 1, 0, 2],
+            "regulating_generator_reached_limit": [False, False, False, False],
         }
     )
     BusParamSchema.validate(buses)
@@ -141,6 +148,104 @@ def test_remove_isolated_buses():
     all_main_grid = buses.assign(grid_island_id=[0, 0, 0, 0])
     filtered_all = import_helpers._remove_isolated_buses(all_main_grid)
     assert list(filtered_all["id_int"]) == [0, 1, 2, 3]
+
+
+def test_filter_main_grid_network_data_reindexes_bus_references():
+    buses = pd.DataFrame(
+        {
+            "id_int": [10, 20, 30],
+            "id_str": ["bus_10", "bus_20", "bus_30"],
+            "name": ["Bus 10", "Bus 20", "Bus 30"],
+            "voltage_magnitude": [1.0, 1.0, 1.0],
+            "voltage_angle": [0.0, 0.0, 0.0],
+            "bus_type": [0, 2, 2],
+            "is_angle_reference": [True, False, False],
+            "grid_island_id": [0, 1, 0],
+            "regulating_generator_reached_limit": [False, False, False],
+        }
+    )
+    branches = pd.DataFrame(
+        {
+            "id_int": [10, 11],
+            "id_str": ["br_0", "br_1"],
+            "name": ["Branch 0", "Branch 1"],
+            "connected": [True, True],
+            "r": [0.01, 0.02],
+            "x": [0.05, 0.04],
+            "g1": [0.0, 0.0],
+            "b1": [0.02, 0.01],
+            "g2": [0.0, 0.0],
+            "b2": [0.02, 0.01],
+            "p1": [np.nan, np.nan],
+            "q1": [np.nan, np.nan],
+            "i1": [np.nan, np.nan],
+            "p2": [np.nan, np.nan],
+            "q2": [np.nan, np.nan],
+            "i2": [np.nan, np.nan],
+            "rho": [1.0, 1.0],
+            "alpha": [0.0, 0.0],
+            "from_bus_index": [10, 10],
+            "to_bus_index": [30, 20],
+            "branch_type": ["LINE", "LINE"],
+        }
+    )
+    injections = pd.DataFrame(
+        {
+            "id_int": [100, 101, 102],
+            "id_str": ["inj_0", "inj_1", "inj_2"],
+            "injection_type": ["GENERATOR", "LOAD", "GENERATOR"],
+            "p": [50.0, -20.0, 15.0],
+            "q": [5.0, -2.0, 1.5],
+            "i": [1.0, 0.5, 0.3],
+            "setpoint_p": [50.0, np.nan, 15.0],
+            "setpoint_q": [5.0, np.nan, 1.5],
+            "min_q": [-10.0, -5.0, -5.0],
+            "max_q": [10.0, 5.0, 5.0],
+            "min_p": [0.0, -30.0, 0.0],
+            "max_p": [60.0, 0.0, 20.0],
+            "bus_index": [10, 30, 20],
+            "connected": [True, True, False],
+            "voltage_regulation": [True, False, False],
+            "regulated_bus_id_str": ["bus_10", "", ""],
+            "regulated_bus_id_int": [10, -1, -1],
+        }
+    )
+    shunts = pd.DataFrame(
+        {
+            "id_int": [200, 201],
+            "id_str": ["sh_0", "sh_1"],
+            "name": ["Shunt 0", "Shunt 1"],
+            "connected": [True, True],
+            "g": [0.001, 0.002],
+            "b": [0.01, -0.02],
+            "p": [np.nan, np.nan],
+            "q": [np.nan, np.nan],
+            "i": [np.nan, np.nan],
+            "bus_index": [30, 20],
+            "section_count": [1, 2],
+            "max_section_count": [2, 3],
+            "voltage_regulation": [False, False],
+            "regulated_bus_id_str": ["", ""],
+            "regulated_bus_id_int": [-1, -1],
+        }
+    )
+
+    filtered_buses, filtered_branches, filtered_injections, filtered_shunts = import_helpers._filter_main_grid_network_data(
+        buses=buses,
+        branches=branches,
+        injections=injections,
+        shunts=shunts,
+    )
+
+    assert list(filtered_buses["id_int"]) == [0, 1]
+    assert list(filtered_buses["id_str"]) == ["bus_10", "bus_30"]
+    assert filtered_branches[["from_bus_index", "to_bus_index"]].to_dict("records") == [
+        {"from_bus_index": 0, "to_bus_index": 1}
+    ]
+    assert list(filtered_injections["bus_index"]) == [0, 1]
+    assert list(filtered_injections["regulated_bus_id_int"]) == [0, -1]
+    assert list(filtered_shunts["bus_index"]) == [1]
+    assert list(filtered_buses["regulating_generator_reached_limit"]) == [False, False]
 
 
 def test_get_admittance_branches():
@@ -230,6 +335,7 @@ def test_get_bus_active_power_injections():
             "i": [np.nan, np.nan, np.nan, np.nan],
             "setpoint_p": [np.nan, np.nan, np.nan, np.nan],
             "setpoint_q": [np.nan, np.nan, np.nan, np.nan],
+            "voltage_setpoint": [np.nan, np.nan, np.nan, np.nan],
             "min_q": [np.nan, np.nan, np.nan, np.nan],
             "max_q": [np.nan, np.nan, np.nan, np.nan],
             "min_p": [np.nan, np.nan, np.nan, np.nan],
@@ -261,6 +367,7 @@ def test_get_bus_reactive_power_injections():
             "i": [np.nan, np.nan, np.nan, np.nan],
             "setpoint_p": [np.nan, np.nan, np.nan, np.nan],
             "setpoint_q": [np.nan, np.nan, np.nan, np.nan],
+            "voltage_setpoint": [np.nan, np.nan, np.nan, np.nan],
             "min_q": [np.nan, np.nan, np.nan, np.nan],
             "max_q": [np.nan, np.nan, np.nan, np.nan],
             "min_p": [np.nan, np.nan, np.nan, np.nan],

@@ -983,6 +983,25 @@ POWSYBL_NETWORKS = [
     pypowsybl.network.create_metrix_tutorial_six_buses_network,  # HVDC
 ]
 
+POWSYBL_NETWORKS_SHORT_LIST = [
+    pypowsybl.network.create_ieee9,
+    pypowsybl.network.create_ieee14,
+    pypowsybl.network.create_ieee30,
+    pypowsybl.network.create_ieee57,
+    pypowsybl.network.create_micro_grid_nl_network,
+    basic_node_breaker_network_powsybl,
+    create_complex_grid_battery_hvdc_svc_3w_trafo,
+]
+
+POWSYBL_NETWORKS_IEEE = [
+    pypowsybl.network.create_ieee9,
+    pypowsybl.network.create_ieee14,
+    pypowsybl.network.create_ieee30,
+    pypowsybl.network.create_ieee57,
+    pypowsybl.network.create_ieee118,
+    pypowsybl.network.create_ieee300,
+]
+
 # TODO: check this network and add to POWSYBL_NETWORKS if possible (currently fails)
 POWSYBL_NETWORKS_NOT_IMPLEMENTED = [
     pypowsybl.network.create_micro_grid_be_network,

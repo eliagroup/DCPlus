@@ -8,12 +8,14 @@
 from copy import deepcopy
 
 import numpy as np
+import pandas as pd
 import pypowsybl
 import pytest
 
 from dc_plus.example_grids.pypowsbl.example_grids import (
     PANDAPOWER_NETWORKS_FOR_POWSYBL,
     POWSYBL_NETWORKS,
+    POWSYBL_NETWORKS_SHORT_LIST,
     basic_node_breaker_network_powsybl,
 )
 from dc_plus.importing.powsybl.powsybl_import import DANGLING_BUS_STRING_SUFFIX
@@ -24,20 +26,106 @@ from dc_plus.importing.powsybl.powsybl_network_helpers import (
     powsybl_n1_analysis,
 )
 from dc_plus.interfaces.jacobian_network_data import (
+    _apply_jacobian_dx_to_network_data,
     _get_admittance_matrix_from_network_data,
-    _get_jacobian_data_from_network_data,
+    get_jacobian_data_from_network_data,
     calculate_nodal_mismatch_network_data,
 )
+from dc_plus.numpy.bsdf_full_rank import compute_bsdf_update
 from dc_plus.numpy.lodf import branch_outage_monitored_bus_dx, branch_outage_update_inverse
 from dc_plus.preprocess.helper_functions import _find_bridges
+from dc_plus.preprocess.create_network_data import create_network_data_pypowsybl
 
 powsybl_networks = POWSYBL_NETWORKS
+powsybl_networks_short_list = POWSYBL_NETWORKS_SHORT_LIST
 pandapower_networks = PANDAPOWER_NETWORKS_FOR_POWSYBL
+
+
+def _assert_branch_outage_one_step_matches_powsybl(
+    net,
+    dynamic_info,
+    string_info,
+    jacobian_data,
+    base_inverse,
+    max_cases: int | None = None,
+):
+    is_bridge = _find_bridges(dynamic_info)
+    loadflow_parameter_one_step = get_powsybl_loadflow_parameter("one_step")
+    outage_ids = string_info.branch_ids[~is_bridge]
+    sa_res = powsybl_n1_analysis(net=net, outage_grid_ids=outage_ids, loadflow_parameter=loadflow_parameter_one_step)
+    sa_bus_results = get_bus_branch_ids_for_n1_results(net, sa_res)
+    dangling_bus_mask = np.char.endswith(np.asarray(string_info.bus_ids, dtype=str), DANGLING_BUS_STRING_SUFFIX)
+
+    compared_cases = 0
+    for outage_idx in np.flatnonzero(~is_bridge):
+        if max_cases is not None and compared_cases >= max_cases:
+            break
+
+        outage_id = string_info.branch_ids[outage_idx]
+        if outage_id not in sa_bus_results.index:
+            continue
+
+        is_n1_converged = (
+            sa_res.post_contingency_results[outage_id].status
+            == pypowsybl._pypowsybl.PostContingencyComputationStatus.CONVERGED
+        )
+        if not is_n1_converged:
+            continue
+
+        dynamic_info_n1 = deepcopy(dynamic_info)
+        dynamic_info_n1.branch_connected[outage_idx] = False
+        jacobian_data_n1 = get_jacobian_data_from_network_data(
+            dynamic_info_n1,
+        )
+        jacobian_inv_n1 = branch_outage_update_inverse(
+            jacobian_inv=base_inverse,
+            outage_branches_indices=np.array([outage_idx], dtype=np.int64),
+            branch_from=dynamic_info.branch_from_bus,
+            branch_to=dynamic_info.branch_to_bus,
+            v_mag_hat=dynamic_info.bus_voltage_magnitudes,
+            theta_hat=dynamic_info.bus_voltage_angles_rad,
+            y_ft=dynamic_info.branch_effective_admittance_from_to,
+            y_tf=dynamic_info.branch_effective_admittance_to_from,
+            y_ff=dynamic_info.branch_effective_admittance_from_from,
+            y_tt=dynamic_info.branch_effective_admittance_to_to,
+            angle_component_indices=jacobian_data.angle_component_indices,
+            magnitude_component_indices=jacobian_data.magnitude_component_indices,
+        )
+        y_matrix_n1 = _get_admittance_matrix_from_network_data(dynamic_info_n1)
+        mismatch_n1 = calculate_nodal_mismatch_network_data(
+            dynamic_network_data=dynamic_info_n1,
+            y_matrix=y_matrix_n1,
+            jacobian_data=jacobian_data_n1,
+        )
+        updated_dynamic_info_n1 = _apply_jacobian_dx_to_network_data(
+            dynamic_network_data=dynamic_info_n1,
+            dx=-(jacobian_inv_n1 @ mismatch_n1),
+            jacobian_data=jacobian_data_n1,
+        )
+
+        sa_bus_results_n1 = sa_bus_results.loc[outage_id]
+        np.testing.assert_allclose(
+            updated_dynamic_info_n1.bus_voltage_angles_rad[~dangling_bus_mask],
+            sa_bus_results_n1["v_angle_rad"].values,
+            rtol=1e-10,
+            atol=1e-10,
+        )
+        np.testing.assert_allclose(
+            updated_dynamic_info_n1.bus_voltage_magnitudes[~dangling_bus_mask],
+            sa_bus_results_n1["v_mag_pu"].values,
+            rtol=1e-10,
+            atol=1e-10,
+        )
+        compared_cases += 1
+
+    if compared_cases == 0:
+        pytest.skip("No converged non-bridge outage available for one-step LODF comparison")
 
 
 def test_lodf_full_rank_update_multi_outage():
     get_net = basic_node_breaker_network_powsybl
-    net, static_info, dynamic_info, string_info, jacobian_data = _load_test_grid(get_net)
+    net, network_info, jacobian_data = _load_test_grid(get_net)
+    dynamic_info = network_info.dynamic_network_data
     theta_actual = dynamic_info.bus_voltage_angles_rad
     vm_actual = dynamic_info.bus_voltage_magnitudes
 
@@ -56,7 +144,7 @@ def test_lodf_full_rank_update_multi_outage():
         dynamic_info_n2.branch_connected[outage_idx] = False
         dynamic_info_n2.branch_connected[multi_outage_idx] = False
 
-        jacobian_data_n2 = _get_jacobian_data_from_network_data(dynamic_info_n2)
+        jacobian_data_n2 = get_jacobian_data_from_network_data(dynamic_info_n2)
         J_inverse_direct_n2 = jacobian_data_n2.inverse_jacobian
 
         Yff = dynamic_info.branch_effective_admittance_from_from
@@ -90,7 +178,9 @@ def test_lodf_full_rank_update_multi_outage():
 # @pytest.mark.parametrize("get_net", [create_complex_grid_battery_hvdc_svc_3w_trafo])
 # @pytest.mark.parametrize("get_net", [pypowsybl.network.create_micro_grid_be_network])
 def test_lodf_numpy_full_rank_update_compare_powsybl(get_net):
-    net, static_info, dynamic_info, string_info, jacobian_data = _load_test_grid(get_net)
+    net, network_info, jacobian_data = _load_test_grid(get_net)
+    dynamic_info = network_info.dynamic_network_data
+    string_info = network_info.string_network_data
     theta_actual = dynamic_info.bus_voltage_angles_rad
     vm_actual = dynamic_info.bus_voltage_magnitudes
     v_pu_actual = vm_actual * np.exp(theta_actual * 1j)
@@ -105,12 +195,16 @@ def test_lodf_numpy_full_rank_update_compare_powsybl(get_net):
     sa_bus_results = get_bus_branch_ids_for_n1_results(net, sa_res)
 
     y_matrix_n0 = _get_admittance_matrix_from_network_data(dynamic_info)
-    mismatch_n0 = calculate_nodal_mismatch_network_data(dynamic_network_data=dynamic_info, y_matrix=y_matrix_n0)
+    mismatch_n0 = calculate_nodal_mismatch_network_data(
+        dynamic_network_data=dynamic_info,
+        y_matrix=y_matrix_n0,
+        jacobian_data=jacobian_data,
+    )
 
     # get a list of bus ids without dangling buses
     # string_info.bus_ids is a numpy array
     bus_ids = string_info.bus_ids
-    dangling_bus_mask = np.char.endswith(bus_ids.astype(str), DANGLING_BUS_STRING_SUFFIX)
+    dangling_bus_mask = np.char.endswith(np.asarray(bus_ids, dtype=str), DANGLING_BUS_STRING_SUFFIX)
 
     # hotstart precition
     if isinstance(get_net(), pypowsybl.network.Network):
@@ -151,14 +245,18 @@ def test_lodf_numpy_full_rank_update_compare_powsybl(get_net):
 
         dynamic_info_n1 = deepcopy(dynamic_info)
         dynamic_info_n1.branch_connected[outage_idx] = False
-        jacobian_data_n1_direct = _get_jacobian_data_from_network_data(dynamic_info_n1)
+        jacobian_data_n1_direct = get_jacobian_data_from_network_data(dynamic_info_n1)
 
         J_inverse_direct_n1 = jacobian_data_n1_direct.inverse_jacobian
         assert abs(jacobian_inv_n1 - J_inverse_direct_n1).max() < 1e-10, (
             f"max diff: {abs(jacobian_inv_n1 - J_inverse_direct_n1)}"
         )
         y_matrix_n1 = _get_admittance_matrix_from_network_data(dynamic_info_n1)
-        mismatch_n1 = calculate_nodal_mismatch_network_data(dynamic_network_data=dynamic_info_n1, y_matrix=y_matrix_n1)
+        mismatch_n1 = calculate_nodal_mismatch_network_data(
+            dynamic_network_data=dynamic_info_n1,
+            y_matrix=y_matrix_n1,
+            jacobian_data=jacobian_data_n1_direct,
+        )
         dx = -jacobian_inv_n1 @ mismatch_n1
 
         # Map Jacobian increments back to bus ordering using the Jacobian mapping
@@ -214,3 +312,99 @@ def test_lodf_numpy_full_rank_update_compare_powsybl(get_net):
             monitored_bus_voltage = new_mag * np.exp(1.0j * new_theta)
             # Compare complex voltage (magnitude+angle) against the SA complex voltage
             assert abs(monitored_bus_voltage - v_pu).max() < 1e-10, f"max diff: {abs(monitored_bus_voltage - v_pu)}"
+
+
+def test_lodf_numpy_enabled_limit_path_compare_powsybl():
+    get_net = basic_node_breaker_network_powsybl
+    net, network_info, jacobian_data = _load_test_grid(
+        get_net,
+    )
+    dynamic_info = network_info.dynamic_network_data
+    string_info = network_info.string_network_data
+
+    is_bridge = _find_bridges(dynamic_info)
+    loadflow_parameter_one_step = get_powsybl_loadflow_parameter("one_step")
+    outage_ids = string_info.branch_ids[~is_bridge]
+    sa_res = powsybl_n1_analysis(net=net, outage_grid_ids=outage_ids, loadflow_parameter=loadflow_parameter_one_step)
+    sa_bus_results = get_bus_branch_ids_for_n1_results(net, sa_res)
+
+    selected_outage: tuple[int, str] | None = None
+    for outage_idx in np.flatnonzero(~is_bridge):
+        outage_id = string_info.branch_ids[outage_idx]
+        if outage_id not in sa_bus_results.index:
+            continue
+        is_n1_converged = (
+            sa_res.post_contingency_results[outage_id].status
+            == pypowsybl._pypowsybl.PostContingencyComputationStatus.CONVERGED
+        )
+        if is_n1_converged:
+            selected_outage = (int(outage_idx), outage_id)
+            break
+
+    if selected_outage is None:
+        pytest.skip("No converged non-bridge outage available for enabled-limit LODF coverage")
+
+    outage_idx, outage_id = selected_outage
+    dynamic_info_n1 = deepcopy(dynamic_info)
+    dynamic_info_n1.branch_connected[outage_idx] = False
+    jacobian_data_n1_direct = get_jacobian_data_from_network_data(
+        dynamic_info_n1,
+    )
+
+    jacobian_inv_n1 = branch_outage_update_inverse(
+        jacobian_inv=jacobian_data.inverse_jacobian,
+        outage_branches_indices=np.array([outage_idx], dtype=np.int64),
+        branch_from=dynamic_info.branch_from_bus,
+        branch_to=dynamic_info.branch_to_bus,
+        v_mag_hat=dynamic_info.bus_voltage_magnitudes,
+        theta_hat=dynamic_info.bus_voltage_angles_rad,
+        y_ft=dynamic_info.branch_effective_admittance_from_to,
+        y_tf=dynamic_info.branch_effective_admittance_to_from,
+        y_ff=dynamic_info.branch_effective_admittance_from_from,
+        y_tt=dynamic_info.branch_effective_admittance_to_to,
+        angle_component_indices=jacobian_data.angle_component_indices,
+        magnitude_component_indices=jacobian_data.magnitude_component_indices,
+    )
+    np.testing.assert_allclose(jacobian_inv_n1, jacobian_data_n1_direct.inverse_jacobian, rtol=1e-10, atol=1e-10)
+
+    y_matrix_n1 = _get_admittance_matrix_from_network_data(dynamic_info_n1)
+    mismatch_n1 = calculate_nodal_mismatch_network_data(
+        dynamic_network_data=dynamic_info_n1,
+        y_matrix=y_matrix_n1,
+        jacobian_data=jacobian_data_n1_direct,
+    )
+    updated_dynamic_info_n1 = _apply_jacobian_dx_to_network_data(
+        dynamic_network_data=dynamic_info_n1,
+        dx=-(jacobian_inv_n1 @ mismatch_n1),
+        jacobian_data=jacobian_data_n1_direct,
+    )
+
+    sa_bus_results_n1 = sa_bus_results.loc[outage_id]
+    dangling_bus_mask = np.char.endswith(np.asarray(string_info.bus_ids, dtype=str), DANGLING_BUS_STRING_SUFFIX)
+    np.testing.assert_allclose(
+        updated_dynamic_info_n1.bus_voltage_angles_rad[~dangling_bus_mask],
+        sa_bus_results_n1["v_angle_rad"].values,
+        rtol=1e-10,
+        atol=1e-10,
+    )
+    np.testing.assert_allclose(
+        updated_dynamic_info_n1.bus_voltage_magnitudes[~dangling_bus_mask],
+        sa_bus_results_n1["v_mag_pu"].values,
+        rtol=1e-10,
+        atol=1e-10,
+    )
+
+
+@pytest.mark.parametrize("get_net", powsybl_networks_short_list)
+def test_lodf_numpy_short_list_one_step_compare_powsybl(get_net):
+    net, network_info, jacobian_data = _load_test_grid(get_net)
+    dynamic_info = network_info.dynamic_network_data
+    string_info = network_info.string_network_data
+
+    _assert_branch_outage_one_step_matches_powsybl(
+        net=net,
+        dynamic_info=dynamic_info,
+        string_info=string_info,
+        jacobian_data=jacobian_data,
+        base_inverse=jacobian_data.inverse_jacobian,
+    )

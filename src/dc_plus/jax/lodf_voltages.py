@@ -11,8 +11,14 @@ from typing import Tuple
 
 import jax
 import jax.numpy as jnp
-from jaxtyping import Complex128, Float, Int
+from jaxtyping import Bool, Float, Int
 
+from ..interfaces.network_inputs import (
+    JacobianComponentInputs,
+    NetworkAdmittanceInputs,
+    NetworkTopologyInputs,
+    VoltageStateInputs,
+)
 from .low_rank_helper import _prepare_low_rank_factors_from_admittance
 
 # ruff: noqa: PLR0913
@@ -34,8 +40,7 @@ def _dot4_unrolled(
 
 @jax.jit
 def build_monitor_rows(
-    angle_component_indices: Int[jnp.ndarray, " n_eq_jacobian"],
-    magnitude_component_indices: Int[jnp.ndarray, " n_eq_jacobian"],
+    jacobian_components: JacobianComponentInputs,
     monitor_bus_indices: Int[jnp.ndarray, " n_bus_mon"],
 ) -> Tuple[
     Int[jnp.ndarray, " n_bus_mon"],
@@ -44,8 +49,8 @@ def build_monitor_rows(
     Float[jnp.ndarray, " n_bus_mon"],
 ]:
     """Precompute safe Jacobian indices and masks for monitored buses."""
-    theta_idx = angle_component_indices[monitor_bus_indices]
-    vm_idx = magnitude_component_indices[monitor_bus_indices]
+    theta_idx = jacobian_components.angle_component_indices[monitor_bus_indices]
+    vm_idx = jacobian_components.magnitude_component_indices[monitor_bus_indices]
 
     theta_ok = theta_idx >= 0
     vm_ok = vm_idx >= 0
@@ -64,16 +69,10 @@ def _compute_post_contingency_states(
     jacobian_inv_transposed: Float[jnp.ndarray, " n_eq n_eq"],
     outage_idx: Int[jnp.ndarray, ""],
     mismatch_vec: Float[jnp.ndarray, "4"],
-    branch_from: Int[jnp.ndarray, " n_branches"],
-    branch_to: Int[jnp.ndarray, " n_branches"],
-    v_mag_hat: Float[jnp.ndarray, " n_buses"],
-    theta_hat: Float[jnp.ndarray, " n_buses"],
-    angle_component_indices: Int[jnp.ndarray, " n_eq_jacobian"],
-    magnitude_component_indices: Int[jnp.ndarray, " n_eq_jacobian"],
-    y_ff: Complex128[jnp.ndarray, " n_branches"],
-    y_ft: Complex128[jnp.ndarray, " n_branches"],
-    y_tf: Complex128[jnp.ndarray, " n_branches"],
-    y_tt: Complex128[jnp.ndarray, " n_branches"],
+    network_topology: NetworkTopologyInputs,
+    voltage_state: VoltageStateInputs,
+    jacobian_components: JacobianComponentInputs,
+    network_admittance: NetworkAdmittanceInputs,
     base_theta0: Float[jnp.ndarray, " n_mon_bus"],
     base_vm0: Float[jnp.ndarray, " n_mon_bus"],
     theta_rows: Int[jnp.ndarray, " n_mon_bus"],
@@ -92,16 +91,10 @@ def _compute_post_contingency_states(
 
     d_mat, branch_indices, branch_valid_mask = _prepare_low_rank_factors_from_admittance(
         branch_idx=outage_idx,
-        branch_from=branch_from,
-        branch_to=branch_to,
-        v_mag_hat=v_mag_hat,
-        theta_hat=theta_hat,
-        y_ff=y_ff,
-        y_ft=y_ft,
-        y_tf=y_tf,
-        y_tt=y_tt,
-        angle_component_indices=angle_component_indices,
-        magnitude_component_indices=magnitude_component_indices,
+        network_topology=network_topology,
+        voltage_state=voltage_state,
+        network_admittance=network_admittance,
+        jacobian_components=jacobian_components,
     )
     d_mat = d_mat.astype(dtype)
     branch_indices = branch_indices.astype(jnp.int32)
@@ -180,17 +173,12 @@ def _compute_post_contingency_states(
 def _solve_outage_voltages(
     jacobian_inv_transposed: Float[jnp.ndarray, " n_eq n_eq"],
     outage_branch_idx: Int[jnp.ndarray, " n_outages"],
-    branch_from: Int[jnp.ndarray, " n_branches"],
-    branch_to: Int[jnp.ndarray, " n_branches"],
-    v_mag_hat: Float[jnp.ndarray, " n_buses"],
-    theta_hat: Float[jnp.ndarray, " n_buses"],
-    angle_component_indices: Int[jnp.ndarray, " n_eq_jacobian"],
-    magnitude_component_indices: Int[jnp.ndarray, " n_eq_jacobian"],
-    y_ff: Complex128[jnp.ndarray, " n_branches"],
-    y_ft: Complex128[jnp.ndarray, " n_branches"],
-    y_tf: Complex128[jnp.ndarray, " n_branches"],
-    y_tt: Complex128[jnp.ndarray, " n_branches"],
+    jacobian_components: JacobianComponentInputs,
+    network_topology: NetworkTopologyInputs,
+    voltage_state: VoltageStateInputs,
+    network_admittance: NetworkAdmittanceInputs,
     branch_pq_base: Float[jnp.ndarray, "n_branches 4"],
+    lower_residual_uses_reactive_mismatch: Bool[jnp.ndarray, " n_buses"],
     base_theta0: Float[jnp.ndarray, " n_mon_bus"],
     base_vm0: Float[jnp.ndarray, " n_mon_bus"],
     theta_rows: Int[jnp.ndarray, " n_mon_bus"],
@@ -206,20 +194,22 @@ def _solve_outage_voltages(
 
     def _solve_single(out_idx: jnp.ndarray) -> Tuple[Float[jnp.ndarray, " n_mon_bus"], Float[jnp.ndarray, " n_mon_bus"]]:
         mismatch_vec = -jnp.take(branch_pq_base, out_idx, axis=0).astype(dtype)
+        from_bus = jnp.take(network_topology.branch_from, out_idx, axis=0)
+        to_bus = jnp.take(network_topology.branch_to, out_idx, axis=0)
+        mismatch_vec = mismatch_vec.at[2].set(
+            jnp.where(jnp.take(lower_residual_uses_reactive_mismatch, from_bus, axis=0), mismatch_vec[2], 0.0)
+        )
+        mismatch_vec = mismatch_vec.at[3].set(
+            jnp.where(jnp.take(lower_residual_uses_reactive_mismatch, to_bus, axis=0), mismatch_vec[3], 0.0)
+        )
         return _compute_post_contingency_states(
             jacobian_inv_transposed=jacobian_inv_transposed,
             outage_idx=out_idx,
             mismatch_vec=mismatch_vec,
-            branch_from=branch_from,
-            branch_to=branch_to,
-            v_mag_hat=v_mag_hat,
-            theta_hat=theta_hat,
-            angle_component_indices=angle_component_indices,
-            magnitude_component_indices=magnitude_component_indices,
-            y_ff=y_ff,
-            y_ft=y_ft,
-            y_tf=y_tf,
-            y_tt=y_tt,
+            network_topology=network_topology,
+            voltage_state=voltage_state,
+            jacobian_components=jacobian_components,
+            network_admittance=network_admittance,
             base_theta0=base_theta0,
             base_vm0=base_vm0,
             theta_rows=theta_rows,
@@ -234,63 +224,35 @@ def _solve_outage_voltages(
 def line_outage_post_contingency_voltages(
     jacobian_inv_transposed: Float[jnp.ndarray, " n_eq n_eq"],
     outage_branch_idx: Int[jnp.ndarray, " n_outages"],
-    branch_from: Int[jnp.ndarray, " n_branches"],
-    branch_to: Int[jnp.ndarray, " n_branches"],
-    v_mag_hat: Float[jnp.ndarray, " n_buses"],
-    theta_hat: Float[jnp.ndarray, " n_buses"],
-    angle_component_indices: Int[jnp.ndarray, " n_eq_jacobian"],
-    magnitude_component_indices: Int[jnp.ndarray, " n_eq_jacobian"],
-    y_ff: Complex128[jnp.ndarray, " n_branches"],
-    y_ft: Complex128[jnp.ndarray, " n_branches"],
-    y_tf: Complex128[jnp.ndarray, " n_branches"],
-    y_tt: Complex128[jnp.ndarray, " n_branches"],
+    jacobian_components: JacobianComponentInputs,
+    network_topology: NetworkTopologyInputs,
+    voltage_state: VoltageStateInputs,
+    network_admittance: NetworkAdmittanceInputs,
     monitor_bus_indices: Int[jnp.ndarray, " n_mon_bus"],
     branch_pq_base: Float[jnp.ndarray, "n_branches 4"],
+    lower_residual_uses_reactive_mismatch: Bool[jnp.ndarray, " n_buses"],
 ) -> Tuple[
     Float[jnp.ndarray, "n_outages n_mon_bus"],
     Float[jnp.ndarray, "n_outages n_mon_bus"],
 ]:
     """Compute post-contingency monitored bus voltages (θ, Vm) only."""
-    jacobian_inv_transposed = jnp.asarray(jacobian_inv_transposed)
-    dtype = jacobian_inv_transposed.dtype
-
-    outage_branch_idx = jnp.asarray(outage_branch_idx, dtype=jnp.int32)
-    branch_from = jnp.asarray(branch_from, dtype=jnp.int32)
-    branch_to = jnp.asarray(branch_to, dtype=jnp.int32)
-    v_mag_hat = jnp.asarray(v_mag_hat, dtype=dtype)
-    theta_hat = jnp.asarray(theta_hat, dtype=dtype)
-    angle_component_indices = jnp.asarray(angle_component_indices, dtype=jnp.int32)
-    magnitude_component_indices = jnp.asarray(magnitude_component_indices, dtype=jnp.int32)
-    y_ff = jnp.asarray(y_ff)
-    y_ft = jnp.asarray(y_ft)
-    y_tf = jnp.asarray(y_tf)
-    y_tt = jnp.asarray(y_tt)
-    monitor_bus_indices = jnp.asarray(monitor_bus_indices, dtype=jnp.int32)
-    branch_pq_base = jnp.asarray(branch_pq_base, dtype=dtype)
-
     theta_rows, vm_rows, theta_mask, vm_mask = build_monitor_rows(
-        angle_component_indices=angle_component_indices,
-        magnitude_component_indices=magnitude_component_indices,
+        jacobian_components=jacobian_components,
         monitor_bus_indices=monitor_bus_indices,
     )
 
-    base_theta0 = jnp.take(theta_hat, monitor_bus_indices, axis=0)
-    base_vm0 = jnp.take(v_mag_hat, monitor_bus_indices, axis=0)
+    base_theta0 = jnp.take(voltage_state.bus_voltage_angles_rad, monitor_bus_indices, axis=0)
+    base_vm0 = jnp.take(voltage_state.bus_voltage_magnitudes, monitor_bus_indices, axis=0)
 
     return _solve_outage_voltages(
         jacobian_inv_transposed=jacobian_inv_transposed,
         outage_branch_idx=outage_branch_idx,
-        branch_from=branch_from,
-        branch_to=branch_to,
-        v_mag_hat=v_mag_hat,
-        theta_hat=theta_hat,
-        angle_component_indices=angle_component_indices,
-        magnitude_component_indices=magnitude_component_indices,
-        y_ff=y_ff,
-        y_ft=y_ft,
-        y_tf=y_tf,
-        y_tt=y_tt,
+        jacobian_components=jacobian_components,
+        network_topology=network_topology,
+        voltage_state=voltage_state,
+        network_admittance=network_admittance,
         branch_pq_base=branch_pq_base,
+        lower_residual_uses_reactive_mismatch=lower_residual_uses_reactive_mismatch,
         base_theta0=base_theta0,
         base_vm0=base_vm0,
         theta_rows=theta_rows,

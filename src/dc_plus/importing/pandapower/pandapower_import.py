@@ -218,7 +218,10 @@ def _get_transformer_parameters_pandapower(net: pandapowerNet, split_trafo_charg
     return BranchParamSchema.validate(df)
 
 
-def _get_branches_parameter_pandapower(net: pandapowerNet, split_trafo_charging: bool = True) -> pd.DataFrame:
+def _get_branches_parameter_pandapower(
+    net: pandapowerNet,
+    split_trafo_charging: bool = True,
+) -> BranchParamSchema:
     """Extract branch parameters from pandapower network.
 
     Parameters
@@ -246,7 +249,7 @@ def _get_branches_parameter_pandapower(net: pandapowerNet, split_trafo_charging:
     return BranchParamSchema.validate(branches)
 
 
-def _get_buses_pandapower(net: pandapowerNet, slack_id: NotImplementedError) -> pd.DataFrame:
+def _get_buses_pandapower(net: pandapowerNet, slack_id: int) -> BusParamSchema:
     """Extract bus parameters from pandapower network.
 
     Parameters
@@ -272,11 +275,10 @@ def _get_buses_pandapower(net: pandapowerNet, slack_id: NotImplementedError) -> 
             continue
 
         res_bus = net.res_bus.loc[idx]
+        is_angle_reference = idx == slack_id
 
         # Determine bus type
-        if idx == slack_id:
-            bus_type = BusType.SLACK
-        elif idx in net.gen["bus"].values or idx in net.sgen["bus"].values:
+        if idx in net.gen["bus"].values or idx in net.sgen["bus"].values:
             # Check if voltage control is enabled
             is_voltage_controlled = False
             if idx in net.gen["bus"].values:
@@ -285,8 +287,13 @@ def _get_buses_pandapower(net: pandapowerNet, slack_id: NotImplementedError) -> 
             if not is_voltage_controlled and idx in net.sgen["bus"].values:
                 sgen_at_bus = net.sgen[net.sgen["bus"] == idx]
                 is_voltage_controlled = sgen_at_bus.get("controllable", pd.Series([False])).any()
+        else:
+            is_voltage_controlled = is_angle_reference
 
-            bus_type = BusType.PV if is_voltage_controlled else BusType.PQ
+        if is_angle_reference and is_voltage_controlled:
+            bus_type = BusType.SLACK
+        elif is_voltage_controlled:
+            bus_type = BusType.PV
         else:
             bus_type = BusType.PQ
 
@@ -302,11 +309,13 @@ def _get_buses_pandapower(net: pandapowerNet, slack_id: NotImplementedError) -> 
                 "voltage_magnitude": res_bus["vm_pu"] if pd.notna(res_bus["vm_pu"]) else np.nan,
                 "voltage_angle": (np.deg2rad(res_bus["va_degree"]) if pd.notna(res_bus["va_degree"]) else np.nan),
                 "bus_type": int(bus_type),
+                "is_angle_reference": is_angle_reference,
                 "grid_island_id": grid_island_id,
             }
         )
 
     df = pd.DataFrame(buses)
+    df["regulating_generator_reached_limit"] = False
     return BusParamSchema.validate(df)
 
 
@@ -342,7 +351,8 @@ def _process_generators_pandapower(net: pandapowerNet) -> list[dict]:
                 if pd.notna(res_gen.get("va_degree"))
                 else np.nan,  # Current not directly available
                 "setpoint_p": gen["p_mw"] / net.sn_mva if pd.notna(gen["p_mw"]) else np.nan,
-                "setpoint_q": gen.get("vm_pu") if pd.notna(gen.get("vm_pu")) else np.nan,
+                "setpoint_q": gen.get("q_mvar") / net.sn_mva if pd.notna(gen.get("q_mvar")) else np.nan,
+                "voltage_setpoint": gen.get("vm_pu") if pd.notna(gen.get("vm_pu")) else np.nan,
                 "min_q": gen["min_q_mvar"] / net.sn_mva if pd.notna(gen.get("min_q_mvar")) else np.nan,
                 "max_q": gen["max_q_mvar"] / net.sn_mva if pd.notna(gen.get("max_q_mvar")) else np.nan,
                 "min_p": gen["min_p_mw"] / net.sn_mva if pd.notna(gen.get("min_p_mw")) else np.nan,
@@ -391,6 +401,7 @@ def _process_static_generators_pandapower(net: pandapowerNet) -> list[dict]:
                 "i": np.nan,
                 "setpoint_p": sgen["p_mw"] / net.sn_mva if pd.notna(sgen["p_mw"]) else np.nan,
                 "setpoint_q": sgen["q_mvar"] / net.sn_mva if pd.notna(sgen.get("q_mvar")) else np.nan,
+                "voltage_setpoint": np.nan,
                 "min_q": sgen.get("min_q_mvar", np.nan) / net.sn_mva if pd.notna(sgen.get("min_q_mvar")) else np.nan,
                 "max_q": sgen.get("max_q_mvar", np.nan) / net.sn_mva if pd.notna(sgen.get("max_q_mvar")) else np.nan,
                 "min_p": sgen.get("min_p_mw", np.nan) / net.sn_mva if pd.notna(sgen.get("min_p_mw")) else np.nan,
@@ -438,7 +449,8 @@ def _process_external_grids_pandapower(net: pandapowerNet) -> list[dict]:
                 "q": res_ext_grid["q_mvar"] / net.sn_mva if pd.notna(res_ext_grid["q_mvar"]) else np.nan,
                 "i": np.nan,
                 "setpoint_p": np.nan,  # External grid adjusts P to balance system
-                "setpoint_q": ext_grid.get("vm_pu") if pd.notna(ext_grid.get("vm_pu")) else np.nan,
+                "setpoint_q": np.nan,
+                "voltage_setpoint": ext_grid.get("vm_pu") if pd.notna(ext_grid.get("vm_pu")) else np.nan,
                 "min_q": ext_grid.get("min_q_mvar", np.nan) / net.sn_mva if pd.notna(ext_grid.get("min_q_mvar")) else np.nan,
                 "max_q": ext_grid.get("max_q_mvar", np.nan) / net.sn_mva if pd.notna(ext_grid.get("max_q_mvar")) else np.nan,
                 "min_p": ext_grid.get("min_p_mw", np.nan) / net.sn_mva if pd.notna(ext_grid.get("min_p_mw")) else np.nan,
@@ -487,6 +499,7 @@ def _process_loads_pandapower(net: pandapowerNet) -> list[dict]:
                 "i": np.nan,
                 "setpoint_p": -load["p_mw"] / net.sn_mva if pd.notna(load["p_mw"]) else np.nan,
                 "setpoint_q": -load["q_mvar"] / net.sn_mva if pd.notna(load["q_mvar"]) else np.nan,
+                "voltage_setpoint": np.nan,
                 "min_q": np.nan,
                 "max_q": np.nan,
                 "min_p": np.nan,
@@ -534,6 +547,7 @@ def _process_storage_pandapower(net: pandapowerNet) -> list[dict]:
                     "i": np.nan,
                     "setpoint_p": storage["p_mw"] / net.sn_mva if pd.notna(storage["p_mw"]) else np.nan,
                     "setpoint_q": np.nan,
+                    "voltage_setpoint": np.nan,
                     "min_q": np.nan,
                     "max_q": np.nan,
                     "min_p": storage.get("min_p_mw", np.nan) / net.sn_mva if pd.notna(storage.get("min_p_mw")) else np.nan,
@@ -549,7 +563,7 @@ def _process_storage_pandapower(net: pandapowerNet) -> list[dict]:
     return storage_injections
 
 
-def _get_injections_pandapower(net: pandapowerNet) -> pd.DataFrame:
+def _get_injections_pandapower(net: pandapowerNet) -> InjectionParamSchema:
     """Extract injection parameters from pandapower network.
 
     Parameters
@@ -582,7 +596,7 @@ def _get_injections_pandapower(net: pandapowerNet) -> pd.DataFrame:
     return InjectionParamSchema.validate(df)
 
 
-def _get_shunts_pandapower(net: pandapowerNet) -> pd.DataFrame:
+def _get_shunts_pandapower(net: pandapowerNet) -> ShuntParamSchema:
     """Extract shunt parameters from pandapower network.
 
     Parameters
@@ -648,7 +662,7 @@ def _get_shunts_pandapower(net: pandapowerNet) -> pd.DataFrame:
     return ShuntParamSchema.validate(df)
 
 
-def _get_limits_parameter_pandapower(net: pandapowerNet) -> pd.DataFrame:
+def _get_limits_parameter_pandapower(net: pandapowerNet) -> LimitParamSchema:
     """Extract limit parameters from pandapower network.
 
     Parameters
