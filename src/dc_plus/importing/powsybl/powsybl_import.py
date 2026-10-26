@@ -205,12 +205,8 @@ def _get_tie_line_parameter(net: Network) -> BranchParamSchema:
     available_attributes = ["name", "connected", "r", "x", "g", "b", "p", "q", "i", "bus_id"]
     dangling_lines = net.get_dangling_lines(attributes=available_attributes)
     tie_lines = tie_lines.drop(columns=["connected1", "connected2"], errors="ignore")
-    tie_lines = tie_lines.merge(
-        dangling_lines.add_suffix("1"), how="left", left_on=["dangling_line1_id"], right_index=True
-    )
-    tie_lines = tie_lines.merge(
-        dangling_lines.add_suffix("2"), how="left", left_on=["dangling_line2_id"], right_index=True
-    )
+    tie_lines = tie_lines.merge(dangling_lines.add_suffix("1"), how="left", left_on=["dangling_line1_id"], right_index=True)
+    tie_lines = tie_lines.merge(dangling_lines.add_suffix("2"), how="left", left_on=["dangling_line2_id"], right_index=True)
     tie_lines["r"] = tie_lines["r1"] + tie_lines["r2"]
     tie_lines["x"] = tie_lines["x1"] + tie_lines["x2"]
     tie_lines["connected"] = tie_lines["connected1"] & tie_lines["connected2"]
