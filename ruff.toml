@@ -130,4 +130,5 @@ convention = "numpy"
 
 [lint.pylint]
 max-args = 10
+max-positional-args = 19 # JAX/numpy kernels take many array inputs
 max-statements = 50
