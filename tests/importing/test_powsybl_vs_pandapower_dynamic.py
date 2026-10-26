@@ -110,10 +110,15 @@ def _numeric_suffix(identifier: str) -> int:
     return int(digits) if digits else 0
 
 
-def _bus_indices_from_powsybl(strings: StringNetworkInformation) -> np.ndarray:
+def _bus_indices_from_powsybl(strings: StringNetworkInformation, psb_net: pypowsybl.network.Network) -> np.ndarray:
     if strings.bus_ids.size == 0:
         return np.array([], dtype=int)
-    return np.array([int(bus.split("_")[1]) for bus in strings.bus_ids], dtype=int)
+    # Calculated bus ids (sub_X_Y) carry no pandapower index; use the bus-breaker ids (bus_N) they merge.
+    breaker_buses = psb_net.get_bus_breaker_view_buses()
+    pp_index_by_bus_id = (
+        breaker_buses.index.to_series().str.split("_").str[1].astype(int).groupby(breaker_buses["bus_id"]).min()
+    )
+    return pp_index_by_bus_id.loc[list(strings.bus_ids)].to_numpy(dtype=int)
 
 
 def _bus_indices_from_pandapower(strings: StringNetworkInformation) -> np.ndarray:
@@ -184,7 +189,7 @@ def _prepare_powsybl_network(
 ) -> tuple[DynamicNetworkInformation, StringNetworkInformation]:
     original_branch_ids = np.asarray(string_psb.branch_ids, dtype=str)
 
-    bus_index_map = _bus_indices_from_powsybl(string_psb)
+    bus_index_map = _bus_indices_from_powsybl(string_psb, psb_net)
     bus_perm = np.argsort(bus_index_map)
 
     branch_indices = _branch_indices_from_powsybl(string_psb)
