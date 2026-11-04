@@ -10,7 +10,6 @@
 import networkx as nx
 import numpy as np
 from jaxtyping import Bool, Complex128, Int
-from scipy import sparse
 
 from dc_plus.interfaces.network_information import DynamicNetworkInformation
 
@@ -53,7 +52,6 @@ def _find_bridges(
     if active_indices.size == 0:
         return bridges
 
-    number_edges = active_indices.size
     number_nodes = dynamic_network_data.bus_voltage_magnitudes.shape[0]
 
     from_nodes_active = branch_from_nodes[active_indices]
