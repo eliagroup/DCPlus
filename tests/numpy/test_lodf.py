@@ -109,15 +109,15 @@ def test_lodf_numpy_full_rank_update_compare_powsybl(get_net):
     bus_ids = string_info.bus_ids
     dangling_bus_mask = np.char.endswith(bus_ids.astype(str), DANGLING_BUS_STRING_SUFFIX)
 
-    # hotstart precition
+    # hotstart precision
     if isinstance(get_net(), pypowsybl.network.Network):
-        precition = 1e-11
+        precision = 1e-11
     else:
-        precition = 1e-9
-    assert abs(mismatch_n0).max() < precition
+        precision = 1e-9
+    assert abs(mismatch_n0).max() < precision
     dx = -j_inverse @ mismatch_n0
 
-    assert abs(dx).max() < precition
+    assert abs(dx).max() < precision
 
     cases_comapred = 0
 
