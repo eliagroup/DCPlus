@@ -38,8 +38,6 @@ pandapower_networks = PANDAPOWER_NETWORKS_FOR_POWSYBL
 def test_lodf_full_rank_update_multi_outage():
     get_net = basic_node_breaker_network_powsybl
     net, static_info, dynamic_info, string_info, jacobian_data = _load_test_grid(get_net)
-    theta_actual = dynamic_info.bus_voltage_angles_rad
-    vm_actual = dynamic_info.bus_voltage_magnitudes
 
     is_bridge = _find_bridges(dynamic_info)
     for outage_idx in np.flatnonzero(~is_bridge):
@@ -93,7 +91,6 @@ def test_lodf_numpy_full_rank_update_compare_powsybl(get_net):
     net, static_info, dynamic_info, string_info, jacobian_data = _load_test_grid(get_net)
     theta_actual = dynamic_info.bus_voltage_angles_rad
     vm_actual = dynamic_info.bus_voltage_magnitudes
-    v_pu_actual = vm_actual * np.exp(theta_actual * 1j)
     j_inverse = jacobian_data.inverse_jacobian
 
     ### N-1 test
@@ -170,7 +167,6 @@ def test_lodf_numpy_full_rank_update_compare_powsybl(get_net):
         vm_updated_J[pq] = vm_actual[pq] + dx[jacobian_data_n1_direct.is_magnitude_component]
 
         sa_bus_results_n1 = sa_bus_results.loc[outage_id]
-        v_pu_actual_n1_sa = sa_bus_results_n1["v_mag_pu"].values * np.exp(1j * sa_bus_results_n1["v_angle_rad"].values)
 
         assert abs(theta_updated_J[~dangling_bus_mask] - sa_bus_results_n1["v_angle_rad"].values).max() < 1e-10, (
             f"max diff: {abs(theta_updated_J[~dangling_bus_mask] - sa_bus_results_n1['v_angle_rad'].values)}"
