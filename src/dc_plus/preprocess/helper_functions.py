@@ -10,7 +10,6 @@
 import networkx as nx
 import numpy as np
 from jaxtyping import Bool, Complex128, Int
-from scipy import sparse
 
 from dc_plus.interfaces.network_information import DynamicNetworkInformation
 
@@ -53,23 +52,14 @@ def _find_bridges(
     if active_indices.size == 0:
         return bridges
 
-    number_edges = active_indices.size
     number_nodes = dynamic_network_data.bus_voltage_magnitudes.shape[0]
 
     from_nodes_active = branch_from_nodes[active_indices]
     to_nodes_active = branch_to_nodes[active_indices]
 
-    data = np.concatenate([np.ones(number_edges), -np.ones(number_edges)])
-    row_indices = np.concatenate([np.arange(number_edges), np.arange(number_edges)])
-    column_indices = np.concatenate([from_nodes_active, to_nodes_active])
-    connectivity_matrix = sparse.csc_array(
-        (data, (row_indices, column_indices)),
-        shape=(number_edges, number_nodes),
-        dtype=int,
-    )
-
-    graph = connectivity_matrix.T @ connectivity_matrix
-    graph_nx = nx.from_scipy_sparse_array(graph)
+    graph_nx = nx.MultiGraph()
+    graph_nx.add_nodes_from(list(range(number_nodes)))
+    graph_nx.add_edges_from(list(zip(from_nodes_active, to_nodes_active, strict=True)))
 
     bridge_pairs = {frozenset(edge) for edge in nx.bridges(graph_nx)}
 
