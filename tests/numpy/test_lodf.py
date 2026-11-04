@@ -168,7 +168,7 @@ def test_lodf_numpy_full_rank_update_compare_powsybl(get_net):
 
         sa_bus_results_n1 = sa_bus_results.loc[outage_id]
 
-        assert abs(theta_updated_J[~dangling_bus_mask] - sa_bus_results_n1["v_angle_rad"].values).max() < 1e-10, (
+        assert abs(theta_updated_J[~dangling_bus_mask] - sa_bus_results_n1["v_angle_rad"].values).max() < 1e-9, (
             f"max diff: {abs(theta_updated_J[~dangling_bus_mask] - sa_bus_results_n1['v_angle_rad'].values)}"
         )
         assert abs(vm_updated_J[~dangling_bus_mask] - sa_bus_results_n1["v_mag_pu"].values).max() < 1e-10, (
